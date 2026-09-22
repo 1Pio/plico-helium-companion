@@ -1,0 +1,24 @@
+{
+  "manifest_version": 3,
+  "name": "Plico Helium Companion",
+  "version": "0.1.0",
+  "description": "Native keyboard navigation for Helium",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAmVVhAJBHIKOqxpBpD3L4EtQdImWLqTIRI8ZQOSeSwRY6GkqZMLA2uYRBfgDBse0jZCYix1+rwgcm+a13kde0zyBYvqIz82ZP72H/IqV3bI/61ZngNKkxcEuvNityt4yqGmbmdLJ8l0kvES0OMLLvz59Vc85KRDFASMFfV2dTvX30ma0UBxIlVeyZUah9iNgS3N7kBBDe6YDH0vWuhR2wT60B2rq27n9oqyNZeTInK8DT4o9/H4uON/RKRtu4KQvgGau6oDmLWSannnse32N0oKScdMcWuLeYDBiYTd+ZRrfFNQNoFRZH3BDGPguPah4cRV8SR8CDXNwXE6k/mnf/lQIDAQAB",
+  "permissions": [
+    "tabs",
+    "tabGroups",
+    "nativeMessaging",
+    "storage",
+    "history",
+    "bookmarks",
+    "search",
+    "favicon"
+  ],
+  "background": {
+    "service_worker": "background.mjs",
+    "type": "module"
+  },
+  "action": {
+    "default_popup": "popup.html"
+  }
+}
