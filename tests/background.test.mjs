@@ -106,3 +106,28 @@ test('candidate close confirmation does not block refresh',async()=>{
  h.port.onMessage.emit({v:1,epoch:s.epoch,revision:s.revision,window:7,tab:2,type:'close',request:'close'});await settle();
  h.port.onMessage.emit({v:1,epoch:s.epoch,window:7,type:'refresh',request:'refresh'});await settle();assert(h.messages.some(m=>m.type==='ack'&&m.request==='refresh'));assert(!h.messages.some(m=>m.type==='ack'&&m.request==='close'));finish();await settle();assert(h.messages.some(m=>m.type==='ack'&&m.request==='close'));
 });
+
+
+test('favicon loading does not cache a placeholder before the real icon arrives',async()=>{
+ const original=globalThis.fetch,calls=[];globalThis.fetch=async url=>{calls.push(String(url));return {arrayBuffer:async()=>new Uint8Array([1,2,3]).buffer}};
+ try{
+  const h=await harness();h.api.runtime.getURL=()=> 'https://extension.invalid/_favicon/';
+  const refresh=async()=>{const s=h.messages.filter(m=>m.type==='snapshot').at(-1);h.port.onMessage.emit({v:1,epoch:s.epoch,request:crypto.randomUUID(),window:7,type:'refresh'});await settle();};
+  h.tabs[0].url+='?loading';await refresh();assert.equal(calls.length,0);
+  h.tabs[0].favIconUrl='https://example.org/icon1.png';await refresh();assert.equal(calls.length,1);assert(h.messages.some(m=>m.type==='icon'));
+  await refresh();assert.equal(calls.length,1);
+  h.tabs[0].favIconUrl='https://example.org/icon2.png';await refresh();assert.equal(calls.length,2);
+ }finally{globalThis.fetch=original;}
+});
+
+test('changed in-flight favicon suppresses stale bytes and fetches the latest source',async()=>{
+ const original=globalThis.fetch,pending=[];globalThis.fetch=()=>new Promise(resolve=>pending.push(bytes=>resolve({arrayBuffer:async()=>new Uint8Array(bytes).buffer})));
+ try{
+  const h=await harness();h.api.runtime.getURL=()=> 'https://extension.invalid/_favicon/';
+  const refresh=async()=>{const s=h.messages.filter(m=>m.type==='snapshot').at(-1);h.port.onMessage.emit({v:1,epoch:s.epoch,request:crypto.randomUUID(),window:7,type:'refresh'});await settle();};
+  h.tabs[0].favIconUrl='https://example.org/old.png';await refresh();assert.equal(pending.length,1);
+  h.tabs[0].favIconUrl='https://example.org/new.png';await refresh();assert.equal(pending.length,1);
+  pending[0]([1]);await settle();assert.equal(h.messages.filter(m=>m.type==='icon').length,0);assert.equal(pending.length,2);
+  pending[1]([2]);await settle();assert.equal(h.messages.filter(m=>m.type==='icon').at(-1).data,btoa(String.fromCharCode(2)));
+ }finally{globalThis.fetch=original;}
+});

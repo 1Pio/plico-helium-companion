@@ -127,7 +127,7 @@ static CGEventRef Tap(CGEventTapProxy proxy,CGEventType type,CGEventRef event,vo
  auto tab=[&](TabId id,NSRect r,BOOL expanded,BOOL chosen){
   NSDictionary*t=c.tabs[@(id)];if(chosen)highlight(r);
   if([c.debuggerTabs containsObject:@(id)]){[[NSColor colorWithRed:0.3 green:0.61 blue:1 alpha:0.95]setStroke];NSBezierPath*p=[NSBezierPath bezierPathWithRoundedRect:NSInsetRect(r,1,1) xRadius:16 yRadius:16];p.lineWidth=1.5;[p stroke];}
-  NSImage*icon=[c.icons objectForKey:t[@"url"]?:@""]?:[NSImage imageWithSystemSymbolName:@"globe" accessibilityDescription:nil];
+  NSImage*icon=[c.icons objectForKey:t[@"url"]?:@""]?:PlicoSymbol(@"globe",secondary);
   CGFloat ix=r.origin.x+14,iy=r.origin.y+(r.size.height-24)/2;
   [icon drawInRect:NSMakeRect(ix,iy,24,24) fromRect:NSZeroRect operation:NSCompositingOperationSourceOver fraction:1 respectFlipped:YES hints:nil];
   BOOL muted=[t[@"muted"]boolValue],audible=[t[@"audible"]boolValue];
@@ -280,7 +280,7 @@ static CGEventRef Tap(CGEventTapProxy proxy,CGEventType type,CGEventRef event,vo
  }else if([type isEqual:@"icon"]&&[m[@"epoch"]isEqual:self.epoch]&&PlicoString(m[@"url"],65536)&&PlicoString(m[@"data"],45000)){
   NSData*data=[[NSData alloc]initWithBase64EncodedString:m[@"data"] options:0];
   const unsigned char*b=(const unsigned char*)data.bytes;
-  if(data.length>=24&&memcmp(b,"\x89PNG\r\n\x1a\n",8)==0){uint32_t width=0,height=0;memcpy(&width,b+16,4);memcpy(&height,b+20,4);width=ntohl(width);height=ntohl(height);if(width&&height&&width<=64&&height<=64){NSImage*image=[[NSImage alloc]initWithData:data];if(image){[self.icons setObject:image forKey:m[@"url"]];[self.navigator setNeedsDisplay:YES];}}}
+  if(data.length>=24&&memcmp(b,"\x89PNG\r\n\x1a\n",8)==0){uint32_t width=0,height=0;memcpy(&width,b+16,4);memcpy(&height,b+20,4);width=ntohl(width);height=ntohl(height);if(width&&height&&width<=64&&height<=64){NSImage*image=[[NSImage alloc]initWithData:data];if(image){[self.icons setObject:image forKey:m[@"url"]];[self.navigator setNeedsDisplay:YES];if(self.composer.visible)[self.results reloadData];}}}
  }else if([type isEqual:@"attachments"]&&[m[@"epoch"]isEqual:self.epoch]&&[m[@"request"]isEqual:self.attachmentRequest]&&[m[@"window"]isEqual:self.snapshot[@"window"][@"id"]]){
   if(!PlicoAttachmentsValid(m))return;
   NSMutableSet*live=[NSMutableSet set];for(NSNumber*tab in m[@"attached"])if(self.tabs[tab])[live addObject:tab];
@@ -421,7 +421,6 @@ static CGEventRef Tap(CGEventTapProxy proxy,CGEventType type,CGEventRef event,vo
  PlicoResultCell*cell=[PlicoResultCell new];cell.row=self.rows[row];cell.icon=[self.icons objectForKey:cell.row[@"url"]?:@""];cell.accessibilityLabel=[NSString stringWithFormat:@"%@ %@",cell.row[@"title"]?:@"",cell.row[@"location"]?:@""];return cell;
 }
 -(void)choose:(id)sender{
- if(TraceEnabled())fprintf(stderr,"plico: composer submit row=%ld rows=%lu textLength=%lu\n",(long)self.results.selectedRow,(unsigned long)self.rows.count,(unsigned long)self.field.stringValue.length);
  NSInteger row=self.results.selectedRow;if(row<0||row>=(NSInteger)self.rows.count)return;NSDictionary*r=self.rows[row];if([r[@"kind"]isEqual:@"header"])return;NSMutableDictionary*m=[@{@"type":@"open"}mutableCopy];
  if([r[@"kind"]isEqual:@"tab"])m[@"tab"]=r[@"id"];
  else {m[@"text"]=[r[@"kind"]isEqual:@"url"]?r[@"url"]:self.field.stringValue;if(![m[@"text"]length])return;if(self.editing)m[@"edit"]=@(model.active().value_or(-1));}

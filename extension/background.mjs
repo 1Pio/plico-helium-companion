@@ -3,15 +3,17 @@ import {defaults,migrateSettings} from './settings.mjs';
 import {backToOpener} from './back.mjs';
 import {WindowMemory} from './window-memory.mjs';
 import {VERSION,validateCommit,destination} from './model.mjs';
-const icons=new Map(),iconPending=new Set();
+const icons=new Map(),iconPending=new Map();
 function requestIcons(tabs){
  if(!chrome.runtime.getURL)return;
  for(const t of tabs.slice(0,128)){
-  if(!t.url||iconPending.has(t.url))continue;
-  if(icons.has(t.url)){send({type:'icon',url:t.url,data:icons.get(t.url)});continue;}
-  iconPending.add(t.url);
+  if(!t.url||!t.favIconUrl)continue;
+  if(iconPending.has(t.url)){iconPending.set(t.url,t);continue;}
+  const cached=icons.get(t.url);
+  if(cached?.source===t.favIconUrl){send({type:'icon',url:t.url,data:cached.data});continue;}
+  iconPending.set(t.url,t);
   const url=new URL(chrome.runtime.getURL('/_favicon/'));url.searchParams.set('pageUrl',t.url);url.searchParams.set('size','32');
-  fetch(url,{signal:AbortSignal.timeout(3000)}).then(r=>r.arrayBuffer()).then(buffer=>{if(buffer.byteLength>32768)return;const data=btoa(String.fromCharCode(...new Uint8Array(buffer)));if(icons.size>=128)icons.delete(icons.keys().next().value);icons.set(t.url,data);send({type:'icon',url:t.url,data});}).catch(()=>{}).finally(()=>iconPending.delete(t.url));
+  fetch(url,{signal:AbortSignal.timeout(3000)}).then(r=>r.arrayBuffer()).then(buffer=>{if(buffer.byteLength>32768||iconPending.get(t.url)?.favIconUrl!==t.favIconUrl)return;const data=btoa(String.fromCharCode(...new Uint8Array(buffer)));if(icons.size>=128)icons.delete(icons.keys().next().value);icons.set(t.url,{source:t.favIconUrl,data});send({type:'icon',url:t.url,data});}).catch(()=>{}).finally(()=>{const latest=iconPending.get(t.url);iconPending.delete(t.url);if(latest&&latest.favIconUrl!==t.favIconUrl)requestIcons([latest]);});
  }
 }
 const navigationMemory=new WindowMemory(chrome.storage);

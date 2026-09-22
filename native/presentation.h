@@ -16,7 +16,7 @@ static NSString* PlicoDomain(NSString*url){NSURL*u=[NSURL URLWithString:url?:@""
 @interface PlicoResultRow:NSTableRowView @end
 @implementation PlicoResultRow
 -(void)viewDidChangeEffectiveAppearance{[super viewDidChangeEffectiveAppearance];self.needsDisplay=YES;}
--(void)drawSelectionInRect:(NSRect)dirty{if(self.selected){[[NSColor colorWithWhite:PlicoDark(self)?1:0 alpha:PlicoDark(self)?0.12:0.08]setFill];NSRect r=NSInsetRect(self.bounds,0,2);if(self.enclosingScrollView)r.size.width=MIN(r.size.width,self.enclosingScrollView.contentSize.width-2);[[NSBezierPath bezierPathWithRoundedRect:r xRadius:10 yRadius:10]fill];}}
+-(void)drawSelectionInRect:(NSRect)dirty{if(self.selected){[[NSColor colorWithWhite:PlicoDark(self)?1:0 alpha:PlicoDark(self)?0.12:0.08]setFill];NSRect visible=self.bounds;if(self.enclosingScrollView){NSClipView*clip=self.enclosingScrollView.contentView;visible=NSIntersectionRect(visible,[self convertRect:clip.bounds fromView:clip]);}NSRect r=NSInsetRect(visible,2,2);[[NSBezierPath bezierPathWithRoundedRect:r xRadius:10 yRadius:10]fill];}}
 @end
 @interface PlicoResultCell:NSView
 @property(nonatomic,strong) NSDictionary* row;
