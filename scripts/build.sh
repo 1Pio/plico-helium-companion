@@ -16,4 +16,4 @@ node --test tests/*.test.mjs
 build/bin/native_state_test
 "$CXX" "${CXXFLAGS[@]}" -std=c++20 -O1 -fobjc-arc -I. -framework Cocoa -framework ApplicationServices -framework Carbon native/main.mm plico/core/navigator_model.cc plico/core/gesture_router.cc -o 'build/Plico Helium Companion.app/Contents/MacOS/plico-companion'
 cp native/Info.plist 'build/Plico Helium Companion.app/Contents/Info.plist'
-codesign --force --sign - --identifier cc.helwig.plico.companion 'build/Plico Helium Companion.app'
+codesign --force --sign "${PLICO_SIGNING_IDENTITY:--}" --identifier cc.helwig.plico.companion 'build/Plico Helium Companion.app'

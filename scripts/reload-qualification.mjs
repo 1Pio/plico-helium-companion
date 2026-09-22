@@ -1,0 +1,20 @@
+// Reload only the marked qualification profile's copied unpacked extension.
+import fs from 'node:fs';import path from 'node:path';import {fileURLToPath} from 'node:url';
+import {browser} from './cdp.mjs';import {verifyExtensionSource} from './verify-extension-source.mjs';
+if(process.env.PLICO_QUALIFICATION!=='1')throw Error('Requires explicit qualification profile');
+const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
+const folder=path.join(root,'.local/qualification-extension');
+if(!fs.existsSync(path.join(root,'.local/helium-qualification-profile/.plico-isolated')))throw Error('Unmarked profile');
+for(const name of fs.readdirSync(path.join(root,'extension')))if(name!=='manifest.json'&&fs.statSync(path.join(root,'extension',name)).isFile())fs.copyFileSync(path.join(root,'extension',name),path.join(folder,name));
+const client=await browser();let created;
+try{
+ const all=(await client.call('Target.getTargets')).targetInfos;
+ let page=all.find(t=>t.type==='page'&&t.url==='chrome://extensions/');
+ if(!page){created=(await client.call('Target.createTarget',{url:'chrome://extensions/'})).targetId;page={targetId:created};}
+ const {sessionId}=await client.call('Target.attachToTarget',{targetId:page.targetId,flatten:true});
+ const r=await client.call('Runtime.evaluate',{expression:`(async()=>{await chrome.developerPrivate.updateProfileConfiguration({inDeveloperMode:true});const e=await chrome.developerPrivate.reload('baedceamflgfanjingjiinnhmhfjopbk',{failQuietly:true,populateErrorForUnpacked:true});if(e)throw Error(JSON.stringify(e));return true})()`,awaitPromise:true,returnByValue:true},sessionId);
+ if(r.exceptionDetails)throw Error(r.exceptionDetails.exception?.description);
+ let worker;for(let i=0;i<20;i++){worker=(await client.call('Target.getTargets')).targetInfos.find(t=>t.type==='service_worker'&&t.url.includes('baedceam'));if(worker)break;await new Promise(r=>setTimeout(r,100));}
+ if(!worker)throw Error('Reloaded worker did not start');
+ const w=await client.call('Target.attachToTarget',{targetId:worker.targetId,flatten:true});let ready=false;for(let i=0;i<20;i++){const r=await client.call('Runtime.evaluate',{expression:'!!globalThis.__plicoQualification',returnByValue:true},w.sessionId);if(r.result.value){ready=true;break;}await new Promise(r=>setTimeout(r,100));}if(!ready)throw Error('Worker initialization incomplete');await verifyExtensionSource(client,w.sessionId);console.log('Current extension modules verified in the running isolated worker');
+}finally{if(created)await client.call('Target.closeTarget',{targetId:created});client.close();}

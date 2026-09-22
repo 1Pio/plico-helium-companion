@@ -1,3 +1,5 @@
+import {backToOpener} from './back.mjs';
+import {WindowMemory} from './window-memory.mjs';
 import {VERSION,validateCommit,destination} from './model.mjs';
 const icons=new Map(),iconPending=new Set();
 function requestIcons(tabs){
@@ -10,14 +12,16 @@ function requestIcons(tabs){
   fetch(url,{signal:AbortSignal.timeout(3000)}).then(r=>r.arrayBuffer()).then(buffer=>{if(buffer.byteLength>32768)return;const data=btoa(String.fromCharCode(...new Uint8Array(buffer)));if(icons.size>=128)icons.delete(icons.keys().next().value);icons.set(t.url,data);send({type:'icon',url:t.url,data});}).catch(()=>{}).finally(()=>iconPending.delete(t.url));
  }
 }
+const navigationMemory=new WindowMemory(chrome.storage);
 const HOST='cc.helwig.plico.companion', PREFIX='plico:';
 let snapshotTimer=null,lastIconFingerprint='';
-let port=null, epoch='', revision=0, fingerprint='', chain=Promise.resolve(), recent=[], last=Array(10).fill(null), lastWindow=null, status='Disconnected', seen=new Set();
+let port=null, epoch='', revision=0, fingerprint='', chain=Promise.resolve(), lastWindow=null, status='Disconnected', seen=new Set();
 function send(data){port?.postMessage({v:VERSION,epoch,...data});}
 function scheduleSnapshot(){if(!port||snapshotTimer)return;snapshotTimer=setTimeout(()=>{snapshotTimer=null;queue(snapshot);},25);}
-function queue(fn){chain=chain.then(fn).catch(e=>{status=e.message;console.warn(e);});return chain;}
+function queue(fn){chain=chain.then(()=>fn()).catch(e=>{status=e.message;console.warn(e);});return chain;}
 async function snapshot(responseFor=null){
  const wins=await chrome.windows.getAll({windowTypes:['normal']});
+ await navigationMemory.beginSession(wins.map(w=>w.id));
  const win=wins.find(w=>w.focused)||wins.find(w=>w.id===lastWindow)||wins[0];
  if(!win){send({type:'inactive'});return null;}
  lastWindow=win.id;
@@ -29,9 +33,7 @@ async function snapshot(responseFor=null){
  const active=tabs.find(t=>t.active)?.id;
  const fp=JSON.stringify([win.id,active,tabs.map(t=>[t.id,t.index,t.groupId]),groups.map(g=>[g.id,g.title])]);
  if(fp!==fingerprint){revision++;fingerprint=fp;}
- recent=recent.filter(id=>tabs.some(t=>t.id===id));
- for(const t of tabs)if(!recent.includes(t.id))recent.push(t.id);
- for(let s=0;s<10;s++){if(stacks[s].includes(active))last[s]=active;if(!stacks[s].includes(last[s]))last[s]=stacks[s][0]??null;}
+ const {recent,last}=await navigationMemory.reconcile(win.id,tabs,stacks,active);
  const iconFingerprint=JSON.stringify(tabs.map(t=>[t.id,t.url,t.favIconUrl]));
  const state={type:'snapshot',responseFor,revision,window:{id:win.id,focused:win.focused,left:win.left,top:win.top,width:win.width,height:win.height},active,loose,stacks,last,recent,tabs:tabs.map(t=>({id:t.id,title:t.title||'Untitled',url:t.url||'',audible:!!t.audible,discarded:!!t.discarded,pinned:!!t.pinned,groupId:t.groupId}))};
  send(state);if(iconFingerprint!==lastIconFingerprint){lastIconFingerprint=iconFingerprint;requestIcons(tabs);}return {state,tabs,groups};
@@ -42,6 +44,7 @@ async function handle(m){
  try{
   const current=await snapshot();if(!current)throw Error('No browser window');
   if(m.window!==current.state.window.id)throw Error('Window changed');
+  if(m.type!=='refresh'&&m.type!=='search')await navigationMemory.interacted(m.window);
   if(m.type==='commit'){
    if(m.revision!==current.state.revision)throw Error('Browser changed; draft canceled');
    const order=validateCommit(m,current.tabs);
@@ -88,7 +91,7 @@ async function handle(m){
    }
   }else if(m.type==='back'){
    const t=current.tabs.find(t=>t.id===current.state.active);
-   try{await chrome.tabs.goBack(t.id);}catch(e){if(t.openerTabId&&current.tabs.some(x=>x.id===t.openerTabId)){await chrome.tabs.update(t.openerTabId,{active:true});await chrome.tabs.remove(t.id);}else throw e;}
+   await backToOpener(chrome.tabs,m.window,t.id);
   }else if(m.type!=='refresh')throw Error('Unknown request');
   send({type:'ack',request:m.request});await snapshot(m.request);
  }catch(e){send({type:'error',request:m.request,message:e.message});await snapshot(m.request);}
@@ -109,7 +112,32 @@ chrome.runtime.onMessage.addListener((m,s,reply)=>{
  else return;
  return true;
 });
-chrome.tabs.onActivated.addListener(({tabId})=>{recent=[tabId,...recent.filter(id=>id!==tabId)];scheduleSnapshot();});
-for(const event of [chrome.tabs.onCreated,chrome.tabs.onRemoved,chrome.tabs.onMoved,chrome.tabs.onAttached,chrome.tabs.onDetached,chrome.tabs.onUpdated,chrome.tabGroups.onCreated,chrome.tabGroups.onUpdated,chrome.tabGroups.onRemoved,chrome.windows.onFocusChanged,chrome.windows.onBoundsChanged])event.addListener(scheduleSnapshot);
+// Every new ordinary tab starts in the loose lane. Existing foreign groups and
+// pinned tabs remain browser-owned; never pull a tab back across windows.
+async function placeNewTab(created){
+ if(!port)return;
+ const tab=await chrome.tabs.get(created.id);
+ if(tab.windowId!==created.windowId||tab.pinned)return;
+ const groups=await chrome.tabGroups.query({windowId:tab.windowId});
+ const owned=new Set(groups.filter(g=>/^plico:(?:[1-9]|10)$/.test(g.title)).map(g=>g.id));
+ if(tab.groupId!==-1&&!owned.has(tab.groupId))return;
+ const live=await chrome.tabs.get(tab.id);
+ if(!port||live.windowId!==tab.windowId||live.groupId!==tab.groupId||live.pinned)return;
+ if(owned.has(live.groupId))await chrome.tabs.ungroup([live.id]);
+ const tabs=await chrome.tabs.query({windowId:tab.windowId});
+ const current=tabs.find(t=>t.id===tab.id);if(!port||!current||current.pinned||current.groupId!==-1)return;
+ const others=tabs.filter(t=>t.id!==tab.id);
+ const firstStack=others.findIndex(t=>owned.has(t.groupId));
+ if(firstStack>=0&&current.index!==firstStack)await chrome.tabs.move(tab.id,{index:firstStack});
+}
+chrome.tabs.onCreated.addListener(t=>{if(port)queue(async()=>{await placeNewTab(t);await snapshot();});});
+chrome.tabs.onActivated.addListener(({windowId,tabId})=>{navigationMemory.activate(windowId,tabId);scheduleSnapshot();});
+chrome.windows.onRemoved?.addListener(id=>navigationMemory.forget(id));
+for(const event of [chrome.tabs.onRemoved,chrome.tabs.onMoved,chrome.tabs.onAttached,chrome.tabs.onDetached,chrome.tabs.onUpdated,chrome.tabGroups.onCreated,chrome.tabGroups.onUpdated,chrome.tabGroups.onRemoved,chrome.windows.onFocusChanged,chrome.windows.onBoundsChanged])event.addListener(scheduleSnapshot);
 chrome.runtime.onInstalled.addListener(()=>queue(connect));
 chrome.runtime.onStartup.addListener(()=>queue(connect));
+
+// Internal module exports for the isolated runtime qualification harness.
+// They add no runtime message or web-accessible extension surface.
+export {snapshot, handle, queue};
+export const connectionEpoch=()=>epoch;

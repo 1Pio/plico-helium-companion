@@ -16,6 +16,7 @@
 #include "protocol.h"
 #include "keymap.h"
 using namespace plico;
+static bool TraceEnabled(){return getenv("PLICO_DIAGNOSTICS")!=nullptr;}
 static int64_t Now(){return (int64_t)(NSProcessInfo.processInfo.systemUptime*1000);}
 static NSArray* IDs(const std::vector<TabId>& v){NSMutableArray*a=[NSMutableArray array];for(auto id:v)[a addObject:@(id)];return a;}
 static std::vector<TabId> Vector(id a){std::vector<TabId>v;if([a isKindOfClass:NSArray.class])for(id x in a)if([x isKindOfClass:NSNumber.class])v.push_back([x longLongValue]);return v;}
@@ -30,6 +31,10 @@ static unsigned Mods(CGEventFlags f){return ((f&kCGEventFlagMaskCommand)?kComman
 @property(nonatomic,weak) Companion* owner;
 @property(nonatomic,strong) NSMutableArray* hits;
 @property(nonatomic) CGFloat horizontalOffset;
+@property(nonatomic,strong) NSNumber* revealedTab;
+@property(nonatomic) CGFloat revealedX;
+@property(nonatomic) CGFloat revealedWidth;
+@property(nonatomic) NSRect stackScrollRect;
 @end
 @interface Companion:NSObject<NSApplicationDelegate,NSTextFieldDelegate,NSTableViewDataSource,NSTableViewDelegate>{
 @public NavigatorModel model; GestureRouter* router; CFMachPortRef tap; CFRunLoopSourceRef tapSource;
@@ -45,6 +50,7 @@ static unsigned Mods(CGEventFlags f){return ((f&kCGEventFlagMaskCommand)?kComman
 @property(nonatomic,strong) PlicoPanel* composer;
 @property(nonatomic,strong) NSTextField* field;
 @property(nonatomic,strong) NSTableView* results;
+@property(nonatomic,strong) NSScrollView* composerScroll;
 @property(nonatomic,strong) NSArray* rows;
 @property(nonatomic,strong) NSTimer* revealTimer;
 @property(nonatomic,strong) NSTimer* searchTimer;
@@ -66,6 +72,7 @@ static unsigned Mods(CGEventFlags f){return ((f&kCGEventFlagMaskCommand)?kComman
 -(void)apply:(GestureResult)r;
 -(BOOL)paired;
 -(void)showComposer:(BOOL)edit;
+-(void)layoutComposer;
 -(void)choose:(id)sender;
 -(CGEventRef)event:(CGEventRef)e type:(CGEventType)type;
 @end
@@ -74,20 +81,21 @@ static CGEventRef Tap(CGEventTapProxy proxy,CGEventType type,CGEventRef event,vo
 -(BOOL)isFlipped{return YES;}
 -(BOOL)acceptsFirstResponder{return NO;}
 -(void)drawRect:(NSRect)dirty{
- Companion*c=self.owner;self.hits=[NSMutableArray array];
+ Companion*c=self.owner;self.hits=[NSMutableArray array];self.stackScrollRect=NSZeroRect;
  [[NSColor colorWithWhite:0.94 alpha:0.97]setFill];
  const CGFloat h=54,y=self.bounds.size.height/2-h/2;
  [[NSBezierPath bezierPathWithRoundedRect:NSMakeRect(0,y,self.bounds.size.width,h) xRadius:18 yRadius:18]fill];
  const auto& layout=c->model.visible();auto selected=c->model.candidate();
  struct Item{TabId id;int slot;CGFloat width;};std::vector<Item> items;
  for(auto id:layout.loose)items.push_back({id,-1,selected==id?254.0:44.0});
- for(int s=0;s<10;s++)if(!layout.stacks[s].empty())items.push_back({0,s,132});
- CGFloat total=0,selectedX=0;for(auto i:items){BOOL chosen=i.slot<0?selected==i.id:(selected&&std::find(layout.stacks[i.slot].begin(),layout.stacks[i.slot].end(),*selected)!=layout.stacks[i.slot].end());if(chosen)selectedX=total;total+=i.width+8;}
+ for(int s=0;s<10;s++)if(!layout.stacks[s].empty())items.push_back({0,s,selected&&std::find(layout.stacks[s].begin(),layout.stacks[s].end(),*selected)!=layout.stacks[s].end()?360.0:132.0});
+ CGFloat total=0,selectedX=0,selectedWidth=0;for(auto i:items){BOOL chosen=i.slot<0?selected==i.id:(selected&&std::find(layout.stacks[i.slot].begin(),layout.stacks[i.slot].end(),*selected)!=layout.stacks[i.slot].end());if(chosen){selectedX=total;selectedWidth=i.width;}total+=i.width+8;}
  CGFloat visible=self.bounds.size.width-24;
  if(total<=visible)self.horizontalOffset=0;else self.horizontalOffset=MAX(0,MIN(self.horizontalOffset,total-visible));
  CGFloat x=total<visible?(self.bounds.size.width-total+8)/2:12-self.horizontalOffset;
  // Reveal the selected item without moving the actual browser tab.
- if(total>visible){CGFloat at=12+selectedX-self.horizontalOffset;if(at<12)self.horizontalOffset=selectedX;else if(at+254>self.bounds.size.width-12)self.horizontalOffset=MIN(total-visible,selectedX+254-visible);x=12-self.horizontalOffset;}
+ BOOL reveal=![self.revealedTab isEqual:selected?@(*selected):nil]||selectedX!=self.revealedX||selectedWidth!=self.revealedWidth;self.revealedTab=selected?@(*selected):nil;self.revealedX=selectedX;self.revealedWidth=selectedWidth;
+ if(total>visible&&reveal){CGFloat at=12+selectedX-self.horizontalOffset;if(at<12)self.horizontalOffset=selectedX;else if(at+selectedWidth>self.bounds.size.width-12)self.horizontalOffset=MIN(total-visible,selectedX+selectedWidth-visible);x=12-self.horizontalOffset;}
  for(auto i:items){
   BOOL chosen=i.slot<0?selected==i.id:(selected&&std::find(layout.stacks[i.slot].begin(),layout.stacks[i.slot].end(),*selected)!=layout.stacks[i.slot].end());
   NSRect rect=NSMakeRect(x,y+6,i.width,h-12);
@@ -104,7 +112,8 @@ static CGEventRef Tap(CGEventTapProxy proxy,CGEventType type,CGEventRef event,vo
   [self.hits addObject:@{@"rect":[NSValue valueWithRect:rect],@"id":@(i.id),@"slot":@(i.slot)}];
   if(i.slot>=0&&chosen){
    auto &tabs=layout.stacks[i.slot];NSInteger index=std::find(tabs.begin(),tabs.end(),*selected)-tabs.begin();
-   CGFloat width=MIN(340,self.bounds.size.width-24),left=MAX(12,MIN(x+36,self.bounds.size.width-width-12));
+   CGFloat width=MIN(316,self.bounds.size.width-24),left=MAX(12,MIN(x+44,self.bounds.size.width-width-12));
+   self.stackScrollRect=NSMakeRect(left,0,width,self.bounds.size.height);
    for(NSInteger row=0;row<(NSInteger)tabs.size();row++){
     CGFloat top=y+6+(row-index)*46;if(top<4||top+42>self.bounds.size.height-4)continue;
     NSRect rr=NSMakeRect(left,top,width,42);BOOL active=row==index;
@@ -132,14 +141,21 @@ static CGEventRef Tap(CGEventTapProxy proxy,CGEventType type,CGEventRef event,vo
  [self.owner cancel];
 }
 -(void)scrollWheel:(NSEvent*)e{
- if(fabs(e.scrollingDeltaX)>fabs(e.scrollingDeltaY)){self.horizontalOffset+=e.scrollingDeltaX;[self setNeedsDisplay:YES];}
- else if(e.scrollingDeltaY!=0){self.owner->model.SelectVertical(e.scrollingDeltaY>0?-1:1);[self.owner render];}
+ NSPoint p=[self convertPoint:e.locationInWindow fromView:nil];
+ if(NSPointInRect(p,self.stackScrollRect)&&fabs(e.scrollingDeltaY)>=fabs(e.scrollingDeltaX)){
+  if(e.scrollingDeltaY!=0){self.owner->model.SelectVertical(e.scrollingDeltaY>0?-1:1);[self.owner render];}
+ }else {self.horizontalOffset+=fabs(e.scrollingDeltaX)>fabs(e.scrollingDeltaY)?e.scrollingDeltaX:e.scrollingDeltaY;[self setNeedsDisplay:YES];}
 }
 @end
 @implementation Companion
 -(instancetype)init{if((self=[super init])){router=new GestureRouter(model);_requests=[NSMutableSet set];_rows=@[];_tabs=@{};_icons=[NSCache new];_icons.countLimit=128;}return self;}
 -(void)applicationDidFinishLaunching:(NSNotification*)note{
  [NSApp setActivationPolicy:NSApplicationActivationPolicyAccessory];
+ NSMenu*main=[NSMenu new];NSMenuItem*edit=[NSMenuItem new];edit.title=@"Edit";edit.submenu=[NSMenu new];[main addItem:edit];
+ for(NSArray*entry in @[@[@"Undo",@"undo:",@"z"],@[@"Redo",@"redo:",@"Z"],@[@"Cut",@"cut:",@"x"],@[@"Copy",@"copy:",@"c"],@[@"Paste",@"paste:",@"v"],@[@"Select All",@"selectAll:",@"a"]]){
+  NSMenuItem*item=[[NSMenuItem alloc]initWithTitle:entry[0] action:NSSelectorFromString(entry[1]) keyEquivalent:entry[2]];[edit.submenu addItem:item];
+ }
+ NSApp.mainMenu=main;
  self.statusItem=[NSStatusBar.systemStatusBar statusItemWithLength:NSVariableStatusItemLength];self.statusItem.button.title=@"p";
  NSMenu*menu=[NSMenu new];for(NSArray*entry in @[@[@"Open navigator",@"toggle:"],@[@"Enable Accessibility…",@"permission:"],@[@"Disconnect Plico",@"quit:"]]){NSMenuItem*i=[[NSMenuItem alloc]initWithTitle:entry[0] action:NSSelectorFromString(entry[1]) keyEquivalent:@""];i.target=self;[menu addItem:i];}self.statusItem.menu=menu;
  NSNotificationCenter*nc=NSWorkspace.sharedWorkspace.notificationCenter;
@@ -147,25 +163,27 @@ static CGEventRef Tap(CGEventTapProxy proxy,CGEventType type,CGEventRef event,vo
  [nc addObserver:self selector:@selector(deactivate:) name:NSWorkspaceWillSleepNotification object:nil];
  [[NSDistributedNotificationCenter defaultCenter]addObserver:self selector:@selector(deactivate:) name:@"com.apple.screenIsLocked" object:nil];
  self.panel=[[PlicoPanel alloc]initWithContentRect:NSMakeRect(0,0,800,480) styleMask:NSWindowStyleMaskBorderless|NSWindowStyleMaskNonactivatingPanel backing:NSBackingStoreBuffered defer:NO];
- self.panel.level=NSFloatingWindowLevel;self.panel.opaque=NO;self.panel.backgroundColor=NSColor.clearColor;self.panel.hasShadow=NO;self.panel.hidesOnDeactivate=NO;self.panel.collectionBehavior=NSWindowCollectionBehaviorMoveToActiveSpace|NSWindowCollectionBehaviorFullScreenAuxiliary;
+ self.panel.appearance=[NSAppearance appearanceNamed:NSAppearanceNameAqua];self.panel.title=@"Plico Navigator";self.panel.level=NSFloatingWindowLevel;self.panel.opaque=NO;self.panel.backgroundColor=NSColor.clearColor;self.panel.hasShadow=NO;self.panel.hidesOnDeactivate=NO;self.panel.collectionBehavior=NSWindowCollectionBehaviorMoveToActiveSpace|NSWindowCollectionBehaviorFullScreenAuxiliary;
  self.navigator=[NavigatorView new];self.navigator.owner=self;self.panel.contentView=self.navigator;
  self.composer=[[PlicoPanel alloc]initWithContentRect:NSMakeRect(0,0,620,420) styleMask:NSWindowStyleMaskBorderless|NSWindowStyleMaskNonactivatingPanel backing:NSBackingStoreBuffered defer:NO];
- self.composer.level=NSFloatingWindowLevel;self.composer.opaque=NO;self.composer.backgroundColor=[NSColor colorWithWhite:0.97 alpha:1];self.composer.hasShadow=YES;self.composer.collectionBehavior=self.panel.collectionBehavior;
- self.composer.contentView.wantsLayer=YES;self.composer.contentView.layer.cornerRadius=16;
- self.field=[[NSTextField alloc]initWithFrame:NSMakeRect(20,365,580,36)];self.field.font=[NSFont systemFontOfSize:20];self.field.bordered=NO;self.field.drawsBackground=NO;self.field.placeholderString=@"Search or enter an address";self.field.delegate=self;[self.composer.contentView addSubview:self.field];
- NSScrollView*scroll=[[NSScrollView alloc]initWithFrame:NSMakeRect(12,16,596,332)];scroll.hasVerticalScroller=YES;scroll.drawsBackground=NO;
+ self.composer.appearance=self.panel.appearance;self.composer.title=@"Plico Search";self.composer.level=NSFloatingWindowLevel;self.composer.opaque=NO;self.composer.backgroundColor=NSColor.clearColor;self.composer.hasShadow=YES;self.composer.collectionBehavior=self.panel.collectionBehavior;
+ self.composer.contentView.wantsLayer=YES;self.composer.contentView.layer.cornerRadius=16;self.composer.contentView.layer.masksToBounds=YES;self.composer.contentView.layer.backgroundColor=[NSColor colorWithWhite:0.97 alpha:1].CGColor;
+ self.field=[[NSTextField alloc]initWithFrame:NSMakeRect(20,365,504,36)];self.field.font=[NSFont systemFontOfSize:20];self.field.focusRingType=NSFocusRingTypeNone;self.field.bordered=NO;self.field.drawsBackground=NO;self.field.placeholderString=@"Search or enter an address";self.field.delegate=self;[self.composer.contentView addSubview:self.field];
+ NSButton*submit=[NSButton buttonWithTitle:@"↵" target:self action:@selector(choose:)];submit.frame=NSMakeRect(548,367,48,30);submit.bezelStyle=NSBezelStyleRounded;submit.accessibilityLabel=@"Open selected result";[self.composer.contentView addSubview:submit];
+ NSScrollView*scroll=[[NSScrollView alloc]initWithFrame:NSMakeRect(12,16,596,332)];self.composerScroll=scroll;scroll.hasVerticalScroller=YES;scroll.drawsBackground=NO;
  self.results=[[NSTableView alloc]initWithFrame:scroll.bounds];self.results.headerView=nil;self.results.rowHeight=52;self.results.backgroundColor=NSColor.clearColor;self.results.delegate=self;self.results.dataSource=self;self.results.target=self;self.results.action=@selector(choose:);NSTableColumn*col=[[NSTableColumn alloc]initWithIdentifier:@"result"];col.width=570;[self.results addTableColumn:col];scroll.documentView=self.results;[self.composer.contentView addSubview:scroll];
  __weak Companion*weak=self;
  self.localMonitor=[NSEvent addLocalMonitorForEventsMatchingMask:NSEventMaskKeyDown handler:^NSEvent*(NSEvent*e){Companion*c=weak;if(c.composer.visible){if(e.keyCode==53&&![(NSTextView*)c.field.currentEditor hasMarkedText]){[c cancel];return nil;}if(e.keyCode==36&&![(NSTextView*)c.field.currentEditor hasMarkedText]){[c choose:nil];return nil;}}return e;}];
  pid_t pid=getppid();for(int i=0;i<8&&pid>1;i++){NSRunningApplication*app=[NSRunningApplication runningApplicationWithProcessIdentifier:pid];if([app.bundleIdentifier isEqual:@"net.imput.helium"]){heliumPID=pid;break;}struct proc_bsdinfo info={};if(proc_pidinfo(pid,PROC_PIDTBSDINFO,0,&info,sizeof(info))!=sizeof(info))break;pid=info.pbi_ppid;}
  [self installTap];
- std::thread([weak]{@autoreleasepool{while(true){uint32_t size=0;char*header=(char*)&size;size_t got=0;while(got<4){ssize_t n=read(STDIN_FILENO,header+got,4-got);if(n<=0)goto done;got+=n;}if(!size||size>1024*1024)break;NSMutableData*data=[NSMutableData dataWithLength:size];got=0;while(got<size){ssize_t n=read(STDIN_FILENO,(char*)data.mutableBytes+got,size-got);if(n<=0)goto done;got+=n;}id msg=[NSJSONSerialization JSONObjectWithData:data options:0 error:nil];if(![msg isKindOfClass:NSDictionary.class])break;dispatch_async(dispatch_get_main_queue(),^{[weak receive:msg];});}done:dispatch_async(dispatch_get_main_queue(),^{[weak quit:nil];});}}).detach();
+ std::thread([weak]{@autoreleasepool{while(true){@autoreleasepool{uint32_t size=0;char*header=(char*)&size;size_t got=0;while(got<4){ssize_t n=read(STDIN_FILENO,header+got,4-got);if(n<=0)goto done;got+=n;}if(!size||size>1024*1024)break;NSMutableData*data=[NSMutableData dataWithLength:size];got=0;while(got<size){ssize_t n=read(STDIN_FILENO,(char*)data.mutableBytes+got,size-got);if(n<=0)goto done;got+=n;}if(!PlicoJSONDepthSafe(data))break;id msg=[NSJSONSerialization JSONObjectWithData:data options:0 error:nil];if(![msg isKindOfClass:NSDictionary.class])break;dispatch_async(dispatch_get_main_queue(),^{[weak receive:msg];});}}done:dispatch_async(dispatch_get_main_queue(),^{[weak quit:nil];});}}).detach();
  fprintf(stderr,"plico: host ready; browser=%d accessibility=%d\n",heliumPID,AXIsProcessTrusted());
 }
 -(void)installTap{
  if(tap||!AXIsProcessTrusted())return;
  CGEventMask mask=CGEventMaskBit(kCGEventKeyDown)|CGEventMaskBit(kCGEventKeyUp)|CGEventMaskBit(kCGEventFlagsChanged)|CGEventMaskBit(kCGEventLeftMouseDown)|CGEventMaskBit(kCGEventRightMouseDown);
  tap=CGEventTapCreate(kCGSessionEventTap,kCGHeadInsertEventTap,kCGEventTapOptionDefault,mask,Tap,(__bridge void*)self);
+ if(TraceEnabled())fprintf(stderr,"plico: event tap created=%d\n",tap!=nullptr);
  if(tap){tapSource=CFMachPortCreateRunLoopSource(kCFAllocatorDefault,tap,0);CFRunLoopAddSource(CFRunLoopGetMain(),tapSource,kCFRunLoopCommonModes);CGEventTapEnable(tap,true);}
 }
 -(void)permission:(id)sender{AXIsProcessTrustedWithOptions((__bridge CFDictionaryRef)@{(__bridge NSString*)kAXTrustedCheckOptionPrompt:@YES});[self installTap];}
@@ -199,7 +217,7 @@ static CGEventRef Tap(CGEventTapProxy proxy,CGEventType type,CGEventRef event,vo
   const unsigned char*b=(const unsigned char*)data.bytes;
   if(data.length>=24&&memcmp(b,"\x89PNG\r\n\x1a\n",8)==0){uint32_t width=0,height=0;memcpy(&width,b+16,4);memcpy(&height,b+20,4);width=ntohl(width);height=ntohl(height);if(width&&height&&width<=64&&height<=64){NSImage*image=[[NSImage alloc]initWithData:data];if(image){[self.icons setObject:image forKey:m[@"url"]];[self.navigator setNeedsDisplay:YES];}}}
  }else if([type isEqual:@"results"]&&[m[@"epoch"]isEqual:self.epoch]&&[self.requests containsObject:m[@"request"]]){
-  if(self.composer.visible&&[m[@"query"]isEqual:self.field.stringValue]&&PlicoResultsValid(m[@"rows"])){self.rows=[@[@{@"kind":@"typed",@"title":self.field.stringValue.length?self.field.stringValue:@"Search or enter an address",@"location":self.editing?@"Navigate current tab":@"Open in a new tab"}]arrayByAddingObjectsFromArray:m[@"rows"]];[self.results reloadData];[self.results selectRowIndexes:[NSIndexSet indexSetWithIndex:0] byExtendingSelection:NO];}
+  if(self.composer.visible&&[m[@"query"]isEqual:self.field.stringValue]&&PlicoResultsValid(m[@"rows"])){self.rows=[@[@{@"kind":@"typed",@"title":self.field.stringValue.length?self.field.stringValue:@"Search or enter an address",@"location":self.editing?@"Navigate current tab":@"Open in a new tab"}]arrayByAddingObjectsFromArray:m[@"rows"]];[self.results reloadData];[self.results selectRowIndexes:[NSIndexSet indexSetWithIndex:0] byExtendingSelection:NO];[self layoutComposer];}
  }else if([type isEqual:@"ack"]||[type isEqual:@"error"]){if(![m[@"epoch"]isEqual:self.epoch]||![self.requests containsObject:m[@"request"]])return;[self.requests removeObject:m[@"request"]];if([self.pendingRequest isEqual:m[@"request"]]){self.resetOnSnapshot=YES;}if([type isEqual:@"error"]&&PlicoString(m[@"message"],8192)){fprintf(stderr,"plico: request rejected: %s\n",[m[@"message"]UTF8String]);self.statusItem.button.toolTip=m[@"message"];} }
  else if([type isEqual:@"inactive"]&&[m[@"epoch"]isEqual:self.epoch]){[self cancel];[self.commitTimer invalidate];self.pending=NO;self.pendingRequest=nil;self.resetOnSnapshot=NO;self.snapshot=nil;self.tabs=@{};[self.requests removeAllObjects];model.Reset(Layout{},std::nullopt);}
 }
@@ -214,9 +232,9 @@ static CGEventRef Tap(CGEventTapProxy proxy,CGEventType type,CGEventRef event,vo
  if(fabs(p.x-[w[@"left"]doubleValue])>24||fabs(p.y-[w[@"top"]doubleValue])>24||fabs(s.width-[w[@"width"]doubleValue])>24||fabs(s.height-[w[@"height"]doubleValue])>24)return NO;
  CGFloat screenHeight=CGDisplayBounds(CGMainDisplayID()).size.height;self.browserFrame=NSMakeRect(p.x,screenHeight-p.y-s.height,s.width,s.height);return YES;
 }
--(void)cancel{router->Cancel();[self.revealTimer invalidate];self.revealTimer=nil;[self.searchTimer invalidate];self.searchTimer=nil;router->SetEditorOwnsInput(false);[self.panel orderOut:nil];[self.composer orderOut:nil];}
+-(void)cancel{self.navigator.revealedTab=nil;router->Cancel();[self.revealTimer invalidate];self.revealTimer=nil;[self.searchTimer invalidate];self.searchTimer=nil;router->SetEditorOwnsInput(false);[self.panel orderOut:nil];[self.composer orderOut:nil];}
 -(void)render{
- if(model.mode()==Mode::kHidden){[self.panel orderOut:nil];return;}if(![self paired]){[self cancel];return;}
+ if(model.mode()==Mode::kHidden){self.navigator.revealedTab=nil;[self.panel orderOut:nil];return;}if(![self paired]){[self cancel];return;}
  CGFloat width=MAX(240,MIN(self.browserFrame.size.width-48,1400)),height=MAX(100,MIN(self.browserFrame.size.height-80,620));
  [self.panel setFrame:NSMakeRect(NSMidX(self.browserFrame)-width/2,NSMidY(self.browserFrame)-height/2,width,height) display:NO];[self.navigator setNeedsDisplay:YES];[self.panel orderFrontRegardless];
 }
@@ -233,6 +251,7 @@ static CGEventRef Tap(CGEventTapProxy proxy,CGEventType type,CGEventRef event,vo
  if(!e)return e;int key=(int)CGEventGetIntegerValueField(e,kCGKeyboardEventKeycode);
  if(type==kCGEventKeyUp&&swallowed.erase(key))return nullptr;
  if(self.composer.visible){
+  if(type==kCGEventFlagsChanged)router->ModifiersChanged(Mods(CGEventGetFlags(e)),Now());
   if(type==kCGEventLeftMouseDown||type==kCGEventRightMouseDown){CGPoint p=CGEventGetLocation(e);p.y=CGDisplayBounds(CGMainDisplayID()).size.height-p.y;if(!NSPointInRect(p,self.composer.frame)){[self cancel];return nullptr;}}
   return e;
  }
@@ -242,7 +261,9 @@ static CGEventRef Tap(CGEventTapProxy proxy,CGEventType type,CGEventRef event,vo
   if(type==kCGEventLeftMouseDown||type==kCGEventRightMouseDown)return e;
   if(type==kCGEventKeyDown&&!(ordinary&kCommand)&&!(key==48&&(ordinary&kControl)))return e;
  }
- if(![self paired]){if(model.mode()!=Mode::kHidden)[self cancel];return e;}
+ BOOL pairedNow=[self paired];
+ if(TraceEnabled()&&type==kCGEventKeyDown){static int samples=0;if(samples++<80)fprintf(stderr,"plico: gesture pairing=%d front=%d browser=%d mode=%d\n",pairedNow,NSWorkspace.sharedWorkspace.frontmostApplication.processIdentifier,heliumPID,(int)model.mode());}
+ if(!pairedNow){if(model.mode()!=Mode::kHidden)[self cancel];return e;}
  if(self.pending||self.resetOnSnapshot)return e;
  if(type==kCGEventLeftMouseDown||type==kCGEventRightMouseDown){if(model.mode()!=Mode::kHidden){CGPoint p=CGEventGetLocation(e);p.y=CGDisplayBounds(CGMainDisplayID()).size.height-p.y;if(!NSPointInRect(p,self.panel.frame)){[self cancel];return nullptr;}}return e;}
  unsigned mods=Mods(CGEventGetFlags(e));
@@ -251,22 +272,36 @@ static CGEventRef Tap(CGEventTapProxy proxy,CGEventType type,CGEventRef event,vo
  NSEvent*ne=[NSEvent eventWithCGEvent:e];NSString*ch=ne.charactersIgnoringModifiers.lowercaseString;
  char letter=ch.length==1&&[ch characterAtIndex:0]<128?(char)[ch characterAtIndex:0]:0;
  auto mapping=MapKey(key,letter,mods,model.mode());
+ if(TraceEnabled()&&mapping.action!=Action::kOther)fprintf(stderr,"plico: navigation action=%d\n",(int)mapping.action);
  auto r=router->KeyDown(mapping.action,mods,CGEventGetIntegerValueField(e,kCGKeyboardEventAutorepeat),mapping.stack);[self apply:r];if(r.consumed){swallowed.insert(key);return nullptr;}return e;
 }
 -(void)showComposer:(BOOL)edit{
  if(self.composer.visible){[self.composer makeFirstResponder:self.field];return;}
  [self.panel orderOut:nil];self.editing=edit;router->SetEditorOwnsInput(true);self.field.stringValue=edit?(self.tabs[@(model.active().value_or(-1))][@"url"]?:@""):@"";
- NSRect f=self.composer.frame;f.origin=NSMakePoint(NSMidX(self.browserFrame)-f.size.width/2,NSMidY(self.browserFrame)-f.size.height/2);[self.composer setFrame:f display:NO];[self.composer makeKeyAndOrderFront:nil];[self.composer makeFirstResponder:self.field];[self.field selectText:nil];[self search];
+ self.rows=@[@{@"kind":@"typed",@"title":self.field.stringValue.length?self.field.stringValue:@"Search or enter an address",@"location":edit?@"Navigate current tab":@"Open in a new tab"}];[self.results reloadData];[self.results selectRowIndexes:[NSIndexSet indexSetWithIndex:0] byExtendingSelection:NO];[self layoutComposer];[self.composer makeKeyAndOrderFront:nil];[self.composer makeFirstResponder:self.field];[self.field selectText:nil];[self search];
+}
+-(void)layoutComposer{
+ CGFloat rows=MAX(1,MIN(6,self.rows.count)),height=84+rows*52;
+ CGFloat width=MIN(620,MAX(280,self.browserFrame.size.width-48));
+ height=MIN(height,MAX(136,self.browserFrame.size.height-48));
+ CGFloat top=MIN(NSMaxY(self.browserFrame)-24,NSMidY(self.browserFrame)+60);
+ CGFloat bottom=MAX(NSMinY(self.browserFrame)+24,top-height);
+ [self.composer setFrame:NSMakeRect(NSMidX(self.browserFrame)-width/2,bottom,width,height) display:YES];
+ self.field.frame=NSMakeRect(20,height-55,width-116,36);
+ for(NSView*v in self.composer.contentView.subviews)if([v isKindOfClass:NSButton.class])v.frame=NSMakeRect(width-72,height-53,48,30);
+ self.composerScroll.frame=NSMakeRect(12,12,width-24,height-84);
+ self.results.tableColumns.firstObject.width=width-48;
 }
 -(void)search{self.latestQuery=self.field.stringValue;[self send:@{@"type":@"search",@"query":self.latestQuery}];}
 -(void)controlTextDidChange:(NSNotification*)n{[self.searchTimer invalidate];__weak Companion*w=self;self.searchTimer=[NSTimer scheduledTimerWithTimeInterval:0.08 repeats:NO block:^(NSTimer*t){[w search];}];}
 -(BOOL)control:(NSControl*)control textView:(NSTextView*)view doCommandBySelector:(SEL)selector{
+ if([view hasMarkedText])return NO;
  if(selector==@selector(moveDown:)||selector==@selector(moveUp:)){NSInteger next=self.results.selectedRow+(selector==@selector(moveDown:)?1:-1);next=MAX(0,MIN(next,(NSInteger)self.rows.count-1));[self.results selectRowIndexes:[NSIndexSet indexSetWithIndex:next] byExtendingSelection:NO];[self.results scrollRowToVisible:next];return YES;}
  if(selector==@selector(insertNewline:)){[self choose:nil];return YES;}if(selector==@selector(cancelOperation:)){[self cancel];return YES;}return NO;
 }
 -(NSInteger)numberOfRowsInTableView:(NSTableView*)table{return self.rows.count;}
 -(NSView*)tableView:(NSTableView*)table viewForTableColumn:(NSTableColumn*)column row:(NSInteger)row{
- NSDictionary*r=self.rows[row];NSTextField*t=[NSTextField wrappingLabelWithString:[NSString stringWithFormat:@"%@\n%@",r[@"title"]?:@"",r[@"location"]?:@""]];t.font=[NSFont systemFontOfSize:14];t.maximumNumberOfLines=2;t.lineBreakMode=NSLineBreakByTruncatingTail;return t;
+ NSDictionary*r=self.rows[row];NSTextField*t=[NSTextField wrappingLabelWithString:[NSString stringWithFormat:@"%@\n%@",r[@"title"]?:@"",r[@"location"]?:@""]];NSMutableAttributedString*label=[[NSMutableAttributedString alloc]initWithString:r[@"title"]?:@"" attributes:@{NSFontAttributeName:[NSFont systemFontOfSize:14],NSForegroundColorAttributeName:NSColor.labelColor}];[label appendAttributedString:[[NSAttributedString alloc]initWithString:[@"\n" stringByAppendingString:r[@"location"]?:@""] attributes:@{NSFontAttributeName:[NSFont systemFontOfSize:11],NSForegroundColorAttributeName:NSColor.secondaryLabelColor}]];t.attributedStringValue=label;t.maximumNumberOfLines=2;t.lineBreakMode=NSLineBreakByTruncatingTail;return t;
 }
 -(void)choose:(id)sender{
  NSInteger row=self.results.selectedRow;if(row<0||row>=(NSInteger)self.rows.count)return;NSDictionary*r=self.rows[row];NSMutableDictionary*m=[@{@"type":@"open"}mutableCopy];

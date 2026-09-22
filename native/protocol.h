@@ -2,9 +2,25 @@
 // SPDX-License-Identifier: GPL-3.0-only
 #import <Foundation/Foundation.h>
 #include <set>
+// Bound nesting before Foundation's recursive JSON parser sees untrusted bytes.
+static bool PlicoJSONDepthSafe(NSData* data){
+ if(![[NSString alloc]initWithData:data encoding:NSUTF8StringEncoding])return false;
+ const unsigned char* bytes=(const unsigned char*)data.bytes;
+ unsigned depth=0;bool quoted=false,escaped=false;
+ for(NSUInteger i=0;i<data.length;i++){
+  unsigned char ch=bytes[i];if(ch==0)return false;
+  if(quoted){if(escaped)escaped=false;else if(ch=='\\')escaped=true;else if(ch=='"')quoted=false;continue;}
+  if(ch=='"')quoted=true;
+  else if(ch=='{'||ch=='['){if(++depth>32)return false;}
+  else if(ch=='}'||ch==']'){if(!depth)return false;--depth;}
+ }
+ return !quoted&&depth==0;
+}
 static bool PlicoNumber(id value){return [value isKindOfClass:NSNumber.class]&&CFGetTypeID((__bridge CFTypeRef)value)!=CFBooleanGetTypeID();}
 static bool PlicoString(id value,NSUInteger bound){return [value isKindOfClass:NSString.class]&&[value length]<=bound;}
 static bool PlicoSnapshotValid(NSDictionary*m){
+ if(![m isKindOfClass:NSDictionary.class])return false;
+ if(m[@"responseFor"]&&m[@"responseFor"]!=NSNull.null&&!PlicoString(m[@"responseFor"],80))return false;
  if(![m isKindOfClass:NSDictionary.class]||!PlicoString(m[@"epoch"],80)||![m[@"epoch"]length]||!PlicoNumber(m[@"revision"])||!PlicoNumber(m[@"active"]))return false;
  NSDictionary*w=m[@"window"];if(![w isKindOfClass:NSDictionary.class])return false;
  for(NSString*k in @[@"id",@"left",@"top",@"width",@"height"])if(!PlicoNumber(w[k]))return false;
