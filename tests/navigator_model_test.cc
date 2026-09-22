@@ -217,7 +217,26 @@ void RecentWrapAndMutation() {
   CHECK(m.candidate() == 5);
 }
 
+void WrapSortAndOwnedClose() {
+ NavigatorModel m;CHECK(m.Reset(Example(),1)&&m.Begin(Mode::kCommandHold));
+ CHECK(m.SelectHorizontal(-1)&&m.candidate()==21);CHECK(m.SelectHorizontal(1)&&m.candidate()==1);
+ CHECK(m.SortToStack(4)&&m.candidate()==2&&m.visible().stacks[4].front()==1);
+ CHECK(m.SortToStack(4)&&m.candidate()==3);CHECK(m.committed().loose.size()==4);
+ m.Cancel();CHECK(m.committed().stacks[4].empty());
+ CHECK(m.Begin(Mode::kCommandHold)&&m.Select(15));CHECK(m.SortToStack(4)&&m.candidate()==16);
+ CHECK(m.Select(21)&&m.SortToStack(4)&&m.candidate()!=21);
+ m.Cancel();CHECK(m.Begin(Mode::kCommandHold)&&m.Select(2)&&m.MoveToStack(3));
+ auto live=Example();std::erase(live.loose,2);
+ CHECK(m.ConfirmClose(2,live,1,{1,3,4,15,21}));CHECK(m.mode()==Mode::kCommandHold&&m.candidate()!=2);
+ CHECK(m.active()==1&&m.visible().stacks[3].empty());
+ CHECK(m.Select(3)&&m.MoveToStack(4));live.loose={1,4};
+ CHECK(m.ConfirmClose(3,live,1,{1,4,15,21}));CHECK(m.visible().stacks[4].empty());
+ auto changed=live;changed.loose={4,1};CHECK(!m.ConfirmClose(15,changed,1,{1,4}));
+ Layout only;only.stacks[8]={50};CHECK(m.Reset(only,50)&&m.Begin(Mode::kLatched));CHECK(m.SelectHorizontal(1)&&m.candidate()==50);CHECK(m.SortToStack(9)&&m.candidate()==50);
+}
+
 int main() {
+  WrapSortAndOwnedClose();
   SpatialCommit();
   StackMemory();
   TransactionAndSlots();
@@ -228,5 +247,5 @@ int main() {
   ActualStackMemory();
   DelayedActivationAcknowledgement();
   RecentWrapAndMutation();
-  std::puts("10 navigation scenarios passed");
+  std::puts("11 navigation scenarios passed");
 }

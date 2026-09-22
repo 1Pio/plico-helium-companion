@@ -114,6 +114,12 @@ GestureResult GestureRouter::KeyDown(Action action, unsigned modifiers,
     }
     return result;
   }
+  if (action == Action::kClose || action == Action::kMute) {
+    result.consumed=true;
+    if(model_.mode()==Mode::kHidden){model_.Begin(Mode::kCommandHold);gesture_owner_=kCommand;}
+    if(!repeat && model_.candidate())result.host_action=action==Action::kClose?HostAction::kClose:HostAction::kMute;
+    return result;
+  }
   if (action == Action::kOther) {
     Cancel();
     return result;  // Original event reaches the real page exactly once.
@@ -173,7 +179,7 @@ GestureResult GestureRouter::KeyDown(Action action, unsigned modifiers,
       break;
     }
     case Action::kStack:
-      if (move) model_.MoveToStack(stack);
+      if (move) model_.SortToStack(stack);
       else model_.SelectStack(stack);
       break;
     default: break;

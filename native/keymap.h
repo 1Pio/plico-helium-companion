@@ -15,6 +15,8 @@ inline PlicoKey MapKey(int key,char character,unsigned mods,plico::Mode mode,con
  else if((key==126&&(cmd||mode==Mode::kLatched))||(cmd&&character==b.up))r.action=Action::kUp;
  else if((key==125&&(cmd||mode==Mode::kLatched))||(cmd&&character==b.down))r.action=Action::kDown;
  else if(cmd&&!(mods&kShift)&&((b.back==0&&key==51)||(b.back&&character==b.back)))r.action=Action::kBack;
+ else if(cmd&&!(mods&kShift)&&character=='w'&&mode!=Mode::kHidden)r.action=Action::kClose;
+ else if(cmd&&!(mods&kShift)&&character=='m')r.action=Action::kMute;
  else if(cmd&&!(mods&kShift)&&character==b.toggle)r.action=Action::kToggle;
  else if(cmd&&character==b.new_destination&&!(mods&kShift))r.action=Action::kNewDestination;
  else if(cmd&&(!(mods&kShift)||b.edit==';')&&character==b.edit)r.action=Action::kEditURL;

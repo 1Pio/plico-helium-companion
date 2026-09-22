@@ -91,3 +91,18 @@ test('attachment observation preserves pending partial session restoration',asyn
  h.api.tabs.onUpdated.emit(13,{},h.tabs[2]);await new Promise(r=>setTimeout(r,40));await settle();
  const final=h.messages.filter(m=>m.type==='snapshot').at(-1);assert.equal(final.last[0],12);assert.deepEqual(final.recent,[13,12,11]);
 });
+
+test('candidate close/mute validate identity and never activate a different tab',async()=>{
+ const h=await harness(),s=h.messages.find(m=>m.type==='snapshot');const updates=[],closes=[];
+ h.api.tabs.update=async(id,props)=>{updates.push({id,props});};h.api.tabs.remove=async id=>closes.push(id);
+ const send=async(type,request,extra={})=>{h.port.onMessage.emit({v:1,epoch:s.epoch,revision:s.revision,window:7,tab:2,type,request,...extra});await settle();};
+ await send('mute','mute',{muted:true});assert.deepEqual(updates,[{id:2,props:{muted:true}}]);assert.equal(h.tabs.find(t=>t.active).id,1);
+ await send('close','close');assert.deepEqual(closes,[2]);
+ await send('close','stale',{revision:s.revision-1});await send('close','wrong-window',{window:8});await send('close','unknown',{tab:9});await send('mute','invalid',{muted:1});
+ assert.deepEqual(closes,[2]);assert.equal(updates.length,1);
+});
+test('candidate close confirmation does not block refresh',async()=>{
+ const h=await harness(),s=h.messages.find(m=>m.type==='snapshot');let finish;h.api.tabs.remove=()=>new Promise(r=>finish=r);
+ h.port.onMessage.emit({v:1,epoch:s.epoch,revision:s.revision,window:7,tab:2,type:'close',request:'close'});await settle();
+ h.port.onMessage.emit({v:1,epoch:s.epoch,window:7,type:'refresh',request:'refresh'});await settle();assert(h.messages.some(m=>m.type==='ack'&&m.request==='refresh'));assert(!h.messages.some(m=>m.type==='ack'&&m.request==='close'));finish();await settle();assert(h.messages.some(m=>m.type==='ack'&&m.request==='close'));
+});

@@ -185,7 +185,18 @@ void PointerScrollRespectsGestureCommit() {
   CHECK(r.commit && r.commit->activate == 1);
 }
 
+void CandidateActionsKeepGesture() {
+ Fixture f;f.router.ModifiersChanged(kCommand,0);f.router.KeyDown(Action::kLeft,kCommand);
+ auto candidate=f.model.candidate();auto r=f.router.KeyDown(Action::kMute,kCommand);
+ CHECK(r.consumed&&r.host_action==HostAction::kMute&&f.model.candidate()==candidate);
+ CHECK(f.router.KeyDown(Action::kMute,kCommand,true).host_action==HostAction::kNone);
+ r=f.router.KeyDown(Action::kClose,kCommand);CHECK(r.host_action==HostAction::kClose&&f.model.mode()==Mode::kCommandHold);
+ f.router.Cancel();f.router.KeyDown(Action::kToggle,kCommand);r=f.router.KeyDown(Action::kMute,kCommand);CHECK(f.model.mode()==Mode::kLatched&&!r.commit);
+ f.router.Cancel();f.router.ModifiersChanged(0,10);f.router.ModifiersChanged(kCommand,20);f.router.RevealIfDue(169);CHECK(f.router.reveal_deadline());f.router.RevealIfDue(170);CHECK(f.model.mode()==Mode::kCommandHold);
+}
+
 int main() {
+  CandidateActionsKeepGesture();
   DelayAndOrdinaryCopy();
   ImmediateAndCancel();
   LatchAndBareTap();
@@ -195,5 +206,5 @@ int main() {
   RemappedUnmodifiedKeysCommitOnce();
   PointerStackCommitsOnce();
   PointerScrollRespectsGestureCommit();
-  std::puts("9 modifier-routing scenarios passed");
+  std::puts("10 modifier-routing scenarios passed");
 }

@@ -17,9 +17,9 @@ done
 build/bin/protocol_test
 node --test tests/*.test.mjs
 python3 tests/publish_build_test.py
-"$CXX" "${CXXFLAGS[@]}" -std=c++20 -O1 -fobjc-arc -I. -framework Cocoa -framework ApplicationServices -framework Carbon tests/native_state_test.mm plico/core/navigator_model.cc plico/core/gesture_router.cc -o build/bin/native_state_test
+"$CXX" "${CXXFLAGS[@]}" -std=c++20 -O1 -fobjc-arc -I. -framework Cocoa -framework ApplicationServices -framework Carbon -framework QuartzCore tests/native_state_test.mm plico/core/navigator_model.cc plico/core/gesture_router.cc -o build/bin/native_state_test
 build/bin/native_state_test
-"$CXX" "${CXXFLAGS[@]}" -std=c++20 -O1 -fobjc-arc -I. -framework Cocoa -framework ApplicationServices -framework Carbon native/main.mm plico/core/navigator_model.cc plico/core/gesture_router.cc -o "$app/Contents/MacOS/plico-companion"
+"$CXX" "${CXXFLAGS[@]}" -std=c++20 -O1 -fobjc-arc -I. -framework Cocoa -framework ApplicationServices -framework Carbon -framework QuartzCore native/main.mm plico/core/navigator_model.cc plico/core/gesture_router.cc -o "$app/Contents/MacOS/plico-companion"
 cp native/Info.plist "$app/Contents/Info.plist"
 if [[ "${PLICO_PREPARE_ONLY:-0}" == 1 ]]; then echo "Prepared unsigned candidate: $app"; exit 0; fi
 codesign --force --sign "${PLICO_SIGNING_IDENTITY:--}" --identifier cc.helwig.plico.companion "$app"

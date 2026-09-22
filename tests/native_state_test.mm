@@ -21,5 +21,15 @@ int main(){@autoreleasepool{
  assert(!PlicoPreferences(@{@"revealDelayMs":@YES,@"keys":keys},bindings,delay));
  assert(!PlicoPreferences(@{@"revealDelayMs":@0.5,@"keys":keys},bindings,delay));
  NSMutableDictionary*bad=[keys mutableCopy];bad[@"toggle"]=@"h";assert(!PlicoPreferences(@{@"revealDelayMs":@150,@"keys":bad},bindings,delay));
+ // External reorder while a close confirmation is outstanding must survive timeout.
+ s[@"revision"]=@3;s[@"loose"]=@[@1,@2];[c receive:s];c->model.Begin(Mode::kCommandHold);c.actionRequest=@"close";c.actionKind=@"close";c.actionTab=@2;
+ s[@"revision"]=@4;s[@"loose"]=@[@2,@1];s[@"responseFor"]=NSNull.null;[c receive:s];assert(c->model.committed().loose.front()==1);
+ [c abandonAction];assert(!c.actionRequest);assert(c->model.committed().loose.front()==2);
+ c.actionRequest=@"last-tab";c.actionKind=@"close";[c receive:@{@"v":@1,@"epoch":@"test",@"type":@"inactive"}];assert(!c.actionRequest&&!c.actionTimer);[c abandonAction];
+ s[@"revision"]=@5;[c receive:s];assert(c->model.Begin(Mode::kCommandHold));assert(!c.actionRequest);
+ // A rejected action must not retain a modifier that was released while waiting.
+ c->router->Cancel();c->router->ModifiersChanged(0,10);c->router->ModifiersChanged(kCommand,20);
+ c.actionRequest=@"mute-rejected";c.actionKind=@"mute";c.actionTab=@1;c.actionModifiers=0;c.actionFailed=YES;
+ s[@"responseFor"]=@"mute-rejected";[c receive:s];c->router->ModifiersChanged(kCommand,30);assert(c->router->reveal_deadline().has_value());
  puts("Native rejection, causal resync, window-loss and revision checks passed");
 }}

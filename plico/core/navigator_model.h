@@ -48,6 +48,8 @@ class NavigatorModel {
   bool MoveHorizontal(int direction);
   bool MoveVertical(int direction);
   bool MoveToStack(int slot);
+  bool SortToStack(int slot);
+  bool ConfirmClose(TabId tab, const Layout& layout, TabId active, std::vector<TabId> recent);
   bool StepRecent(int direction);
 
   bool TabAdded(TabId tab);

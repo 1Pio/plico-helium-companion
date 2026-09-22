@@ -28,7 +28,7 @@ static bool PlicoSnapshotValid(NSDictionary*m){
  for(NSString*k in @[@"tabs",@"loose",@"stacks",@"last",@"recent"])if(![m[k]isKindOfClass:NSArray.class])return false;
  if([m[@"stacks"]count]!=10||[m[@"last"]count]!=10||[m[@"tabs"]count]>1000||[m[@"recent"]count]>1000)return false;
  std::set<long long> live,layout,recent;
- for(id t in m[@"tabs"]){if(![t isKindOfClass:NSDictionary.class]||!PlicoNumber(t[@"id"])||!PlicoString(t[@"title"],8192)||!PlicoString(t[@"url"],65536))return false;if(!live.insert([t[@"id"]longLongValue]).second)return false;}
+ for(id t in m[@"tabs"]){if(![t isKindOfClass:NSDictionary.class]||!PlicoNumber(t[@"id"])||!PlicoString(t[@"title"],8192)||!PlicoString(t[@"url"],65536))return false;if(!live.insert([t[@"id"]longLongValue]).second)return false;for(NSString*k in @[@"audible",@"muted"])if(t[k]&&(![t[k]isKindOfClass:NSNumber.class]||CFGetTypeID((__bridge CFTypeRef)t[k])!=CFBooleanGetTypeID()))return false;}
  NSMutableArray*lists=[NSMutableArray arrayWithObject:m[@"loose"]];[lists addObjectsFromArray:m[@"stacks"]];
  for(id a in lists){if(![a isKindOfClass:NSArray.class]||[a count]>1000)return false;for(id x in a){if(!PlicoNumber(x)||!layout.insert([x longLongValue]).second)return false;}}
  if(live!=layout||!live.contains([m[@"active"]longLongValue]))return false;

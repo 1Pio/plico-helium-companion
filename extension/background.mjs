@@ -1,5 +1,5 @@
 import {debuggerStatus} from './debugger-status.mjs';
-import {defaults,normalizeSettings} from './settings.mjs';
+import {defaults,migrateSettings} from './settings.mjs';
 import {backToOpener} from './back.mjs';
 import {WindowMemory} from './window-memory.mjs';
 import {VERSION,validateCommit,destination} from './model.mjs';
@@ -16,7 +16,7 @@ function requestIcons(tabs){
 }
 const navigationMemory=new WindowMemory(chrome.storage);
 let settings=defaults;
-async function loadSettings(){try{const saved=(await chrome.storage?.local?.get('plicoSettings'))?.plicoSettings;settings=saved?normalizeSettings(saved):defaults;}catch{settings=defaults;}}
+async function loadSettings(){try{const saved=(await chrome.storage?.local?.get('plicoSettings'))?.plicoSettings;settings=saved?migrateSettings(saved):defaults;}catch{settings=defaults;}}
 chrome.storage?.onChanged?.addListener((changes,area)=>{if(area==='local'&&changes.plicoSettings)queue(async()=>{await loadSettings();await snapshot();});});
 const HOST='cc.helwig.plico.companion', PREFIX='plico:';
 let snapshotTimer=null,lastIconFingerprint='';
@@ -40,7 +40,7 @@ async function snapshot(responseFor=null){
  if(fp!==fingerprint){revision++;fingerprint=fp;}
  const {recent,last}=await navigationMemory.reconcile(win.id,tabs,stacks,active);
  const iconFingerprint=JSON.stringify(tabs.map(t=>[t.id,t.url,t.favIconUrl]));
- const state={type:'snapshot',settings,responseFor,revision,window:{id:win.id,focused:win.focused,left:win.left,top:win.top,width:win.width,height:win.height},active,loose,stacks,last,recent,tabs:tabs.map(t=>({id:t.id,title:t.title||'Untitled',url:t.url||'',audible:!!t.audible,discarded:!!t.discarded,pinned:!!t.pinned,groupId:t.groupId}))};
+ const state={type:'snapshot',settings,responseFor,revision,window:{id:win.id,focused:win.focused,left:win.left,top:win.top,width:win.width,height:win.height},active,loose,stacks,last,recent,tabs:tabs.map(t=>({id:t.id,title:t.title||'Untitled',url:t.url||'',audible:!!t.audible,muted:!!t.mutedInfo?.muted,discarded:!!t.discarded,pinned:!!t.pinned,groupId:t.groupId}))};
  send(state);if(iconFingerprint!==lastIconFingerprint){lastIconFingerprint=iconFingerprint;requestIcons(tabs);}return {state,tabs,groups};
 }
 async function handle(m){
@@ -79,6 +79,18 @@ async function handle(m){
    }
    await verify();
    await chrome.tabs.update(m.activate,{active:true});
+  }else if(m.type==='close'||m.type==='mute'){
+   if(m.revision!==current.state.revision||!Number.isInteger(m.tab)||!current.tabs.some(t=>t.id===m.tab))throw Error('Candidate changed; action canceled');
+   const live=await chrome.tabs.get(m.tab);
+   if(live.windowId!==m.window||!port||m.epoch!==epoch)throw Error('Candidate moved; action canceled');
+   if(m.type==='mute'){
+    if(typeof m.muted!=='boolean')throw Error('Invalid mute state');
+    await chrome.tabs.update(m.tab,{muted:m.muted});
+   }else{
+    // Do not hold the bridge queue behind a beforeunload confirmation.
+    chrome.tabs.remove(m.tab).then(()=>queue(async()=>{send({type:'ack',request:m.request});await snapshot(m.request);})).catch(e=>queue(async()=>{send({type:'error',request:m.request,message:e.message});await snapshot(m.request);}));
+    return;
+   }
   }else if(m.type==='search'){
    if(typeof m.query!=='string'||m.query.length>8192)throw Error('Invalid query');
    const [history,bookmarks]=m.query.trim()?await Promise.all([chrome.history.search({text:m.query,maxResults:8}),chrome.bookmarks.search(m.query)]):[[],[]];

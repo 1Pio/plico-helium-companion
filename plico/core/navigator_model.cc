@@ -147,21 +147,18 @@ bool NavigatorModel::SelectStack(int slot) {
 
 bool NavigatorModel::SelectHorizontal(int direction) {
   if (!CanOrganize() || !Direction(direction)) return false;
-  auto p = Locate(working_, *candidate_);
-  if (p->slot == -1) {
-    const int next = p->row + direction;
-    if (next >= 0 && next < static_cast<int>(working_.loose.size()))
-      return Choose(working_.loose[next]);
-    if (direction < 0) return false;
-    for (int slot = 0; slot < kStackCount; ++slot)
-      if (!working_.stacks[slot].empty()) return SelectStack(slot);
-    return false;
-  }
-  for (int slot = p->slot + direction; slot >= 0 && slot < kStackCount;
-       slot += direction)
-    if (!working_.stacks[slot].empty()) return SelectStack(slot);
-  return direction < 0 && !working_.loose.empty()
-      ? Choose(working_.loose.back()) : false;
+  struct Target { TabId tab; int slot; };
+  std::vector<Target> targets;
+  for (auto tab : working_.loose) targets.push_back({tab, -1});
+  for (int slot=0; slot<kStackCount; ++slot)
+    if (!working_.stacks[slot].empty()) targets.push_back({0, slot});
+  auto position=Locate(working_, *candidate_);
+  auto it=std::find_if(targets.begin(),targets.end(),[&](auto t){
+    return position->slot<0 ? t.slot<0 && t.tab==*candidate_ : t.slot==position->slot;
+  });
+  if(it==targets.end())return false;
+  auto next=targets[Wrapped(static_cast<int>(it-targets.begin()),direction,static_cast<int>(targets.size()))];
+  return next.slot<0 ? Choose(next.tab) : SelectStack(next.slot);
 }
 
 bool NavigatorModel::SelectVertical(int direction) {
@@ -184,6 +181,33 @@ bool NavigatorModel::MoveToStack(int slot) {
   Remove(working_, tab);
   working_.stacks[slot].insert(working_.stacks[slot].begin(), tab);
   tentative_last_[slot] = tab;
+  return true;
+}
+
+bool NavigatorModel::SortToStack(int slot) {
+  if (!CanOrganize() || slot<0 || slot>=kStackCount) return false;
+  const TabId tab=*candidate_; const auto p=Locate(working_,tab);
+  if(p->slot==slot)return false;
+  const auto source=p->slot<0?working_.loose:working_.stacks[p->slot];
+  std::optional<TabId> next;
+  if(source.size()>1)next=source[p->row+1<static_cast<int>(source.size())?p->row+1:p->row-1];
+  // If the source disappears, stay at its horizontal position where possible.
+  if(!next){SelectHorizontal(1);if(candidate_!=tab)next=candidate_;Choose(tab);}
+  if(!MoveToStack(slot))return false;
+  return Choose(next.value_or(tab));
+}
+
+bool NavigatorModel::ConfirmClose(TabId tab,const Layout& layout,TabId active,std::vector<TabId> recent) {
+  auto expected=committed_;Remove(expected,tab);
+  if(!Valid(layout)||layout.loose!=expected.loose||layout.stacks!=expected.stacks||!Locate(layout,active))return false;
+  auto old=Locate(working_,tab);bool selected=candidate_==tab;
+  Remove(working_,tab);std::erase(recent_snapshot_,tab);
+  committed_=layout;active_=active;recent_=std::move(recent);
+  if(mode_!=Mode::kHidden&&selected){
+    const auto &source=old&&old->slot>=0?working_.stacks[old->slot]:working_.loose;
+    if(!source.empty())Choose(source[std::min(old?old->row:0,static_cast<int>(source.size())-1)]);
+    else {auto all=AllTabs(working_);if(all.empty())Cancel();else Choose(all.front());}
+  }
   return true;
 }
 

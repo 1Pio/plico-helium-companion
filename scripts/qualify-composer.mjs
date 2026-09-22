@@ -12,10 +12,12 @@ try{
  const fixture=await api("chrome.windows.create({url:'https://example.org/#plico-composer-target',focused:true})");wid=fixture.id;const target=fixture.tabs[0].id;
  await sleep(450);native('activate');await sleep(180);
  const tabs=()=>api(`chrome.tabs.query({windowId:${wid}})`);let report=[];
+ const capture=()=>{const panel=JSON.parse(native('windows')).find(w=>w.kCGWindowName==='Plico Search');assert(panel,'composer remains visible before submit');native('gesture','wait','0');const r=panel.kCGWindowBounds;execFileSync('/usr/sbin/screencapture',['-x','-R',`${r.X},${r.Y},${r.Width},${r.Height}`,'.local/composer-before-submit.png']);};
+ const settle=async predicate=>{let current;for(let i=0;i<30;i++){current=await tabs();if(predicate(current))return current;await sleep(100);}return current;};
  key('cmd+,17');text('abc');key('cmd+,0');text('https://example.com/#plico-submit');await sleep(150);
- assert.equal((await tabs()).length,1);key('36');await sleep(250);let current=await tabs();assert.equal(current.length,2);assert.equal(current.find(t=>t.active).url,'https://example.com/#plico-submit');report.push('native Select All replacement and exact URL submit');
+ assert.equal((await tabs()).length,1);capture();key('36');let current=await settle(t=>t.length===2&&t.find(t=>t.active)?.url==='https://example.com/#plico-submit');assert.equal(current.length,2);assert.equal(current.find(t=>t.active).url,'https://example.com/#plico-submit');report.push('native Select All replacement and exact URL submit');
  const edited=current.find(t=>t.active).id;
  key('cmd+,shift+,43');text('example');key('36');let search;for(let i=0;i<20;i++){await sleep(100);current=await tabs();search=current.find(t=>t.active)?.url;if(search&&new URL(search).searchParams.get('q')==='example')break;}assert.equal(current.length,2);assert.equal(current.find(t=>t.active).id,edited);assert.equal(new URL(search).searchParams.get('q'),'example','Observed fixture URL: '+search);report.push('URL composer edits existing tab using browser default search');
- key('cmd+,17');text('example');await sleep(250);key('125');key('36');await sleep(250);current=await tabs();assert.equal(current.length,2);assert.equal(current.find(t=>t.active).id,target);report.push('native composer jumps to existing tab without allocation');
+ key('cmd+,17');text('example');await sleep(250);key('125');key('36');current=await settle(t=>t.find(t=>t.active)?.id===target);assert.equal(current.length,2);assert.equal(current.find(t=>t.active).id,target);report.push('native composer jumps to existing tab without allocation');
  const result={at:new Date().toISOString(),passed:report,defaultSearchOrigin:new URL(search).origin};console.log(JSON.stringify(result,null,2));fs.writeFileSync('.local/composer-result.json',JSON.stringify(result,null,2));
 }finally{if(wid&&api)await api(`chrome.windows.remove(${wid})`).catch(()=>{});b.close();}
