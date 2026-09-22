@@ -43,3 +43,11 @@ static bool PlicoResultsValid(id rows){
   if([r[@"kind"]isEqual:@"tab"]){if(!PlicoNumber(r[@"id"]))return false;}else if(![r[@"kind"]isEqual:@"url"])return false;
  }return true;
 }
+
+static bool PlicoAttachmentsValid(NSDictionary*m){
+ id available=m[@"available"],attached=m[@"attached"];
+ if(![available isKindOfClass:NSNumber.class]||CFGetTypeID((__bridge CFTypeRef)available)!=CFBooleanGetTypeID()||![attached isKindOfClass:NSArray.class]||[attached count]>1000)return false;
+ if(![available boolValue]&&[attached count])return false;
+ std::set<long long> seen;for(id tab in attached)if(!PlicoNumber(tab)||[tab doubleValue]!=[tab longLongValue]||[tab longLongValue]<0||!seen.insert([tab longLongValue]).second)return false;
+ return true;
+}

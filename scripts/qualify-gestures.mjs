@@ -5,12 +5,12 @@ import {browser} from './cdp.mjs';
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 const native=(...args)=>execFileSync('python3',['scripts/native-input.py',...args],{encoding:'utf8'});
 const gesture=(keys,hold=0)=>new Promise((resolve,reject)=>{const p=spawn('python3',['scripts/native-input.py','gesture',keys,String(hold)],{stdio:['ignore','pipe','pipe']});let err='';p.stderr.on('data',x=>err+=x);p.on('exit',code=>code?reject(Error(err||'native gesture failed '+code)):resolve());});
-const b=await browser();let fixture;
+const b=await browser();let fixture,api,result;
 try{
  const {targetInfos}=await b.call('Target.getTargets');const worker=targetInfos.find(t=>t.type==='service_worker'&&t.url.includes('baedceam'));
  const {sessionId}=await b.call('Target.attachToTarget',{targetId:worker.targetId,flatten:true});
  await verifyExtensionSource(b,sessionId);
- async function api(expression){const r=await b.call('Runtime.evaluate',{expression,awaitPromise:true,returnByValue:true},sessionId);if(r.exceptionDetails)throw Error(r.exceptionDetails.exception?.description);return r.result.value;}
+ api=async function(expression){const r=await b.call('Runtime.evaluate',{expression,awaitPromise:true,returnByValue:true},sessionId);if(r.exceptionDetails)throw Error(r.exceptionDetails.exception?.description);return r.result.value;}
  fixture=await api(`chrome.windows.create({url:['https://example.com/#plico-a','https://example.org/#plico-b','https://example.net/#plico-c'],focused:true})`);
  const wid=fixture.id;await sleep(400);native('activate');await sleep(150);
  const tabs=()=>api(`chrome.tabs.query({windowId:${wid}})`);let initial=await tabs();const [a,bid,c]=initial.map(t=>t.id);
@@ -27,7 +27,8 @@ try{
  await activate(a);await activate(c);await activate(bid);
  run=gesture('ctrl+,48,wait',600);await sleep(220);assert.equal(await active(),bid);assert(visible());await run;await sleep(200);assert.equal(await active(),c);pass('Control-Tab MRU deferred until Control release');
  await gesture('cmd+,17');await sleep(200);assert.equal((await tabs()).length,3);assert(JSON.parse(native('windows')).some(w=>w.kCGWindowName==='Plico Search'));await gesture('53');pass('composer opens without allocating tab and Escape dismisses');
- console.log(JSON.stringify({passed:report,fixtureWindow:wid},null,2));
- fs.writeFileSync('.local/native-gesture-result.json',JSON.stringify({at:new Date().toISOString(),passed:report,fixtureWindow:wid},null,2));
+ result={at:new Date().toISOString(),passed:report,fixtureWindow:wid};
 }catch(e){console.error(e);process.exitCode=1;}
-finally{b.close();}
+finally{try{if(fixture&&api)await api(`chrome.windows.remove(${fixture.id})`);}finally{b.close();}}
+
+if(result&&!process.exitCode){fs.writeFileSync('.local/native-gesture-result.json',JSON.stringify(result,null,2));console.log(JSON.stringify(result,null,2));}

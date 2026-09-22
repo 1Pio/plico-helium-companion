@@ -15,5 +15,10 @@ int main(){@autoreleasepool{
  for(NSString*k in @[@"last",@"tabs",@"window",@"epoch",@"loose",@"active",@"stacks"]){id saved=m[k];m[k]=@[];assert(!PlicoSnapshotValid(m));m[k]=saved;}
  m[@"tabs"]=@[@7];assert(!PlicoSnapshotValid(m));
  assert(!PlicoResultsValid(@[@1]));assert(!PlicoResultsValid(@[@{@"title":@1}]));assert(PlicoResultsValid(@[@{@"kind":@"url",@"title":@"Title",@"url":@"https://example.com",@"location":@"Bookmark"}]));
+ assert(PlicoAttachmentsValid(@{@"available":@YES,@"attached":@[@1]}));
+ assert(!PlicoAttachmentsValid(@{@"available":@1,@"attached":@[@1]}));
+ assert(!PlicoAttachmentsValid(@{@"available":@NO,@"attached":@[@1]}));
+ assert(!PlicoAttachmentsValid(@{@"available":@YES,@"attached":@[@1,@1]}));
+ assert(!PlicoAttachmentsValid(@{@"available":@YES,@"attached":@[@"bad"]}));
  puts("Snapshot and result shape regressions passed");
 }}

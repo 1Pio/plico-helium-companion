@@ -12,7 +12,8 @@
     "history",
     "bookmarks",
     "search",
-    "favicon"
+    "favicon",
+    "debugger"
   ],
   "background": {
     "service_worker": "background.mjs",

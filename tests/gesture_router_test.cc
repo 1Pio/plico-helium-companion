@@ -168,6 +168,23 @@ void PointerStackCommitsOnce() {
   CHECK(f.model.mode() == Mode::kHidden);
 }
 
+void PointerScrollRespectsGestureCommit() {
+  Fixture f; Layout layout; layout.stacks[0] = {1, 2};
+  CHECK(f.model.Reset(layout, 1, {1, 2}));
+  f.router.ModifiersChanged(kCommand, 0); f.router.RevealIfDue(150);
+  CHECK(!f.router.PointerNavigateVertical(1).commit);
+  CHECK(f.model.candidate() == 2 && f.model.active() == 1);
+  auto r = f.router.ModifiersChanged(0, 200);
+  CHECK(r.commit && r.commit->activate == 2);
+  CHECK(f.model.Reset(layout, 2, {2, 1}));  // Browser acknowledgment applies actual activation.
+  f.router.KeyDown(Action::kToggle, 0);
+  CHECK(!f.router.PointerNavigateVertical(1).commit);
+  CHECK(f.model.candidate() == 1 && f.model.active() == 2);
+  f.router.ModifiersChanged(kCommand, 300);
+  r = f.router.ModifiersChanged(0, 350);
+  CHECK(r.commit && r.commit->activate == 1);
+}
+
 int main() {
   DelayAndOrdinaryCopy();
   ImmediateAndCancel();
@@ -177,5 +194,6 @@ int main() {
   RemappedModifierOwnership();
   RemappedUnmodifiedKeysCommitOnce();
   PointerStackCommitsOnce();
-  std::puts("8 modifier-routing scenarios passed");
+  PointerScrollRespectsGestureCommit();
+  std::puts("9 modifier-routing scenarios passed");
 }

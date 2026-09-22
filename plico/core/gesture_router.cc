@@ -38,6 +38,16 @@ GestureResult GestureRouter::PointerSelectStack(int slot) {
   return PointerSelect(*model_.candidate());
 }
 
+GestureResult GestureRouter::PointerNavigateVertical(int direction) {
+  GestureResult result;
+  if (!model_.SelectVertical(direction)) return result;
+  result.consumed = true;
+  selection_action_ = true;
+  command_bare_ = false;
+  latch_tap_ = false;
+  return result;
+}
+
 GestureResult GestureRouter::ModifiersChanged(unsigned modifiers,
                                                std::int64_t now) {
   GestureResult result;

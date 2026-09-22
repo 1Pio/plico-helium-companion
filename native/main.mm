@@ -45,6 +45,9 @@ static unsigned Mods(CGEventFlags f){return ((f&kCGEventFlagMaskCommand)?kComman
 @property(nonatomic,strong) NSDictionary* snapshot;
 @property(nonatomic,strong) NSDictionary* tabs;
 @property(nonatomic,strong) NSCache* icons;
+@property(nonatomic,strong) NSSet* debuggerTabs;
+@property(nonatomic,copy) NSString* attachmentRequest;
+@property(nonatomic) BOOL debuggerAvailable;
 @property(nonatomic,copy) NSString* epoch;
 @property(nonatomic) NSInteger revision;
 @property(nonatomic,strong) PlicoPanel* panel;
@@ -83,8 +86,9 @@ static CGEventRef Tap(CGEventTapProxy proxy,CGEventType type,CGEventRef event,vo
 @implementation NavigatorView
 -(BOOL)isFlipped{return YES;}
 -(BOOL)acceptsFirstResponder{return NO;}
+-(BOOL)acceptsFirstMouse:(NSEvent*)event{return YES;}
 -(void)drawRect:(NSRect)dirty{
- Companion*c=self.owner;self.hits=[NSMutableArray array];self.stackScrollRect=NSZeroRect;
+ Companion*c=self.owner;self.hits=[NSMutableArray array];self.stackScrollRect=NSZeroRect;[self removeAllToolTips];
  [[NSColor colorWithWhite:0.94 alpha:0.97]setFill];
  const CGFloat h=54,y=self.bounds.size.height/2-h/2;
  [[NSBezierPath bezierPathWithRoundedRect:NSMakeRect(0,y,self.bounds.size.width,h) xRadius:18 yRadius:18]fill];
@@ -112,6 +116,10 @@ static CGEventRef Tap(CGEventTapProxy proxy,CGEventType type,CGEventRef event,vo
    [icon drawInRect:NSMakeRect(rect.origin.x+11,rect.origin.y+10,22,22) fromRect:NSZeroRect operation:NSCompositingOperationSourceOver fraction:1 respectFlipped:YES hints:nil];
    if(chosen){NSMutableParagraphStyle*p=[NSMutableParagraphStyle new];p.lineBreakMode=NSLineBreakByTruncatingTail;NSMutableDictionary*a=[attrs mutableCopy];a[NSParagraphStyleAttributeName]=p;[text drawInRect:NSMakeRect(rect.origin.x+42,rect.origin.y+11,rect.size.width-54,22) withAttributes:a];}
   }else [text drawInRect:NSInsetRect(rect,12,10) withAttributes:attrs];
+  BOOL attached=i.slot<0?[c.debuggerTabs containsObject:@(i.id)]:NO;
+  if(i.slot>=0)for(auto id:layout.stacks[i.slot])if([c.debuggerTabs containsObject:@(id)])attached=YES;
+  if(attached){[[NSColor colorWithRed:0.83 green:0.42 blue:0.08 alpha:1]setFill];[[NSBezierPath bezierPathWithOvalInRect:NSMakeRect(NSMaxX(rect)-9,rect.origin.y+3,6,6)]fill];}
+  [self addToolTipRect:rect owner:(attached?@"Debugger attached at last check":c.debuggerAvailable?@"No debugger detected at last check":@"Debugger status unavailable") userData:nullptr];
   [self.hits addObject:@{@"rect":[NSValue valueWithRect:rect],@"id":@(i.id),@"slot":@(i.slot)}];
   if(i.slot>=0&&chosen){
    auto &tabs=layout.stacks[i.slot];NSInteger index=std::find(tabs.begin(),tabs.end(),*selected)-tabs.begin();
@@ -124,6 +132,9 @@ static CGEventRef Tap(CGEventTapProxy proxy,CGEventType type,CGEventRef event,vo
     NSMutableParagraphStyle*p=[NSMutableParagraphStyle new];p.lineBreakMode=NSLineBreakByTruncatingTail;
     NSDictionary*a=@{NSFontAttributeName:[NSFont systemFontOfSize:14],NSForegroundColorAttributeName:active?NSColor.whiteColor:NSColor.labelColor,NSParagraphStyleAttributeName:p};
     [c.tabs[@(tabs[row])][@"title"] drawInRect:NSInsetRect(rr,12,11) withAttributes:a];
+    BOOL rowAttached=[c.debuggerTabs containsObject:@(tabs[row])];
+    if(rowAttached){[[NSColor colorWithRed:0.83 green:0.42 blue:0.08 alpha:1]setFill];[[NSBezierPath bezierPathWithOvalInRect:NSMakeRect(NSMaxX(rr)-9,rr.origin.y+3,6,6)]fill];}
+    [self addToolTipRect:rr owner:(rowAttached?@"Debugger attached at last check":c.debuggerAvailable?@"No debugger detected at last check":@"Debugger status unavailable") userData:nullptr];
     [self.hits addObject:@{@"rect":[NSValue valueWithRect:rr],@"id":@(tabs[row]),@"slot":@(-1)}];
    }
   }
@@ -132,6 +143,8 @@ static CGEventRef Tap(CGEventTapProxy proxy,CGEventType type,CGEventRef event,vo
  [self setAccessibilityElement:YES];[self setAccessibilityRole:NSAccessibilityGroupRole];[self setAccessibilityLabel:@"Plico tab navigator"];
  NSMutableArray*actions=[NSMutableArray array];
  for(NSDictionary*hit in self.hits){NSString*name=[hit[@"slot"]intValue]<0?c.tabs[hit[@"id"]][@"title"]:[NSString stringWithFormat:@"Stack %d",[hit[@"slot"]intValue]+1];__weak Companion*weak=c;
+  BOOL hitAttached=[c.debuggerTabs containsObject:hit[@"id"]];int slot=[hit[@"slot"]intValue];if(slot>=0)for(auto id:layout.stacks[slot])if([c.debuggerTabs containsObject:@(id)])hitAttached=YES;
+  if(hitAttached)name=[name stringByAppendingString:@", debugger attached at last check"];
   NSAccessibilityCustomAction*action=[[NSAccessibilityCustomAction alloc]initWithName:name?:@"Tab" handler:^BOOL{Companion*owner=weak;if(!owner)return NO;auto result=[hit[@"slot"]intValue]<0?owner->router->PointerSelect([hit[@"id"]longLongValue]):owner->router->PointerSelectStack([hit[@"slot"]intValue]);[owner apply:result];return YES;}];[actions addObject:action];}
  [self setAccessibilityCustomActions:actions];
 }
@@ -146,7 +159,7 @@ static CGEventRef Tap(CGEventTapProxy proxy,CGEventType type,CGEventRef event,vo
 -(void)scrollWheel:(NSEvent*)e{
  NSPoint p=[self convertPoint:e.locationInWindow fromView:nil];
  if(NSPointInRect(p,self.stackScrollRect)&&fabs(e.scrollingDeltaY)>=fabs(e.scrollingDeltaX)){
-  if(e.scrollingDeltaY!=0){self.owner->model.SelectVertical(e.scrollingDeltaY>0?-1:1);[self.owner render];}
+  if(e.scrollingDeltaY!=0){[self.owner apply:self.owner->router->PointerNavigateVertical(e.scrollingDeltaY>0?-1:1)];}
  }else {self.horizontalOffset+=fabs(e.scrollingDeltaX)>fabs(e.scrollingDeltaY)?e.scrollingDeltaX:e.scrollingDeltaY;[self setNeedsDisplay:YES];}
 }
 @end
@@ -195,6 +208,7 @@ static CGEventRef Tap(CGEventTapProxy proxy,CGEventType type,CGEventRef event,vo
 -(void)deactivate:(NSNotification*)n{[self cancel];[self installTap];}
 -(void)send:(NSDictionary*)m{
  if(!self.epoch)return;NSMutableDictionary*d=[m mutableCopy];d[@"v"]=@1;d[@"epoch"]=self.epoch;d[@"window"]=self.snapshot[@"window"][@"id"]?:@(-1);d[@"revision"]=@(self.revision);NSString*request=NSUUID.UUID.UUIDString;d[@"request"]=request;[self.requests addObject:request];
+ if([m[@"type"]isEqual:@"attachments"])self.attachmentRequest=request;
  if([m[@"type"]isEqual:@"commit"]){self.pendingRequest=request;__weak Companion*w=self;[self.commitTimer invalidate];self.commitTimer=[NSTimer scheduledTimerWithTimeInterval:4 repeats:NO block:^(NSTimer*t){Companion*c=w;fprintf(stderr,"plico: commit timed out; disconnecting safely\n");[c quit:nil];}];}
  NSData*data=[NSJSONSerialization dataWithJSONObject:d options:0 error:nil];if(!data||data.length>1024*1024)return;
  static dispatch_queue_t output=dispatch_queue_create("plico.output",DISPATCH_QUEUE_SERIAL);
@@ -221,6 +235,10 @@ static CGEventRef Tap(CGEventTapProxy proxy,CGEventType type,CGEventRef event,vo
   NSData*data=[[NSData alloc]initWithBase64EncodedString:m[@"data"] options:0];
   const unsigned char*b=(const unsigned char*)data.bytes;
   if(data.length>=24&&memcmp(b,"\x89PNG\r\n\x1a\n",8)==0){uint32_t width=0,height=0;memcpy(&width,b+16,4);memcpy(&height,b+20,4);width=ntohl(width);height=ntohl(height);if(width&&height&&width<=64&&height<=64){NSImage*image=[[NSImage alloc]initWithData:data];if(image){[self.icons setObject:image forKey:m[@"url"]];[self.navigator setNeedsDisplay:YES];}}}
+ }else if([type isEqual:@"attachments"]&&[m[@"epoch"]isEqual:self.epoch]&&[m[@"request"]isEqual:self.attachmentRequest]&&[m[@"window"]isEqual:self.snapshot[@"window"][@"id"]]){
+  if(!PlicoAttachmentsValid(m))return;
+  NSMutableSet*live=[NSMutableSet set];for(NSNumber*tab in m[@"attached"])if(self.tabs[tab])[live addObject:tab];
+  self.debuggerTabs=live;self.debuggerAvailable=[m[@"available"]boolValue];[self.navigator setNeedsDisplay:YES];
  }else if([type isEqual:@"results"]&&[m[@"epoch"]isEqual:self.epoch]&&[self.requests containsObject:m[@"request"]]){
   if(self.composer.visible&&[m[@"query"]isEqual:self.field.stringValue]&&PlicoResultsValid(m[@"rows"])){self.rows=[@[@{@"kind":@"typed",@"title":self.field.stringValue.length?self.field.stringValue:@"Search or enter an address",@"location":self.editing?@"Navigate current tab":@"Open in a new tab"}]arrayByAddingObjectsFromArray:m[@"rows"]];[self.results reloadData];[self.results selectRowIndexes:[NSIndexSet indexSetWithIndex:0] byExtendingSelection:NO];[self layoutComposer];}
  }else if([type isEqual:@"ack"]||[type isEqual:@"error"]){if(![m[@"epoch"]isEqual:self.epoch]||![self.requests containsObject:m[@"request"]])return;[self.requests removeObject:m[@"request"]];if([self.pendingRequest isEqual:m[@"request"]]){self.resetOnSnapshot=YES;}if([type isEqual:@"error"]&&PlicoString(m[@"message"],8192)){fprintf(stderr,"plico: request rejected: %s\n",[m[@"message"]UTF8String]);self.statusItem.button.toolTip=m[@"message"];} }
@@ -249,6 +267,7 @@ static CGEventRef Tap(CGEventTapProxy proxy,CGEventType type,CGEventRef event,vo
 -(void)cancel{self.navigator.revealedTab=nil;router->Cancel();[self.revealTimer invalidate];self.revealTimer=nil;[self.searchTimer invalidate];self.searchTimer=nil;router->SetEditorOwnsInput(false);[self.panel orderOut:nil];[self.composer orderOut:nil];}
 -(void)render{
  if(model.mode()==Mode::kHidden){self.navigator.revealedTab=nil;[self.panel orderOut:nil];return;}if(![self paired]){[self cancel];return;}
+ if(!self.panel.visible){self.debuggerTabs=nil;self.debuggerAvailable=NO;[self send:@{@"type":@"attachments"}];}
  CGFloat width=MAX(240,MIN(self.browserFrame.size.width-48,1400)),height=MAX(100,MIN(self.browserFrame.size.height-80,620));
  [self.panel setFrame:NSMakeRect(NSMidX(self.browserFrame)-width/2,NSMidY(self.browserFrame)-height/2,width,height) display:NO];[self.navigator setNeedsDisplay:YES];[self.panel orderFrontRegardless];
 }
@@ -280,7 +299,9 @@ static CGEventRef Tap(CGEventTapProxy proxy,CGEventType type,CGEventRef event,vo
  if(TraceEnabled()&&type==kCGEventKeyDown){static int samples=0;if(samples++<80)fprintf(stderr,"plico: gesture pairing=%d front=%d browser=%d mode=%d\n",pairedNow,NSWorkspace.sharedWorkspace.frontmostApplication.processIdentifier,heliumPID,(int)model.mode());}
  if(!pairedNow){if(model.mode()!=Mode::kHidden)[self cancel];return e;}
  if(self.pending||self.resetOnSnapshot)return e;
- if(type==kCGEventLeftMouseDown||type==kCGEventRightMouseDown){if(model.mode()!=Mode::kHidden){CGPoint p=CGEventGetLocation(e);p.y=CGDisplayBounds(CGMainDisplayID()).size.height-p.y;if(!NSPointInRect(p,self.panel.frame)){[self cancel];return nullptr;}}return e;}
+ if(type==kCGEventLeftMouseDown||type==kCGEventRightMouseDown){if(model.mode()!=Mode::kHidden){CGPoint p=CGEventGetLocation(e);p.y=CGDisplayBounds(CGMainDisplayID()).size.height-p.y;NSPoint local=[self.navigator convertPoint:[self.panel convertPointFromScreen:p] fromView:nil];BOOL hit=NO;
+   for(NSDictionary*item in self.navigator.hits)if(NSPointInRect(local,[item[@"rect"]rectValue])){hit=YES;break;}
+   if(!NSPointInRect(p,self.panel.frame)||!hit){[self cancel];return nullptr;}}return e;}
  unsigned mods=Mods(CGEventGetFlags(e));
  if(type==kCGEventFlagsChanged){auto r=router->ModifiersChanged(mods,Now());if(model.mode()==Mode::kHidden&&router->reveal_deadline()&&[self browserEditorFocused])router->Cancel();[self apply:r];return e;}
  if(type!=kCGEventKeyDown)return e;

@@ -2,8 +2,9 @@ import {test} from 'node:test';import assert from 'node:assert/strict';
 const event=()=>({listeners:[],addListener(f){this.listeners.push(f)},emit(...args){for(const f of this.listeners)f(...args)}});
 const wait=()=>new Promise(r=>setImmediate(r));
 async function settle(){for(let i=0;i<30;i++)await wait();}
-async function harness({race=false,placementRace=false}={}){
+async function harness({race=false,placementRace=false,storage,initialTabs}={}){
  let tabs=[{id:1,index:0,groupId:5,active:true,windowId:7,title:'One',url:'https://example.org/1'},{id:2,index:1,groupId:5,active:false,windowId:7,title:'Two',url:'https://example.org/2'}];
+ if(initialTabs)tabs=structuredClone(initialTabs);
  let groups=[{id:5,title:'plico:1'}],moveCalls=0,messages=[],placementRaced=false,moveArguments=[];
  const port={onMessage:event(),onDisconnect:event(),postMessage(m){messages.push(m)},disconnect(){}};
  const api={
@@ -14,6 +15,7 @@ async function harness({race=false,placementRace=false}={}){
   history:{async search(){return []}},bookmarks:{async search(){return []}},search:{async query(){}}
  };
  for(const k of ['onActivated','onCreated','onRemoved','onMoved','onAttached','onDetached','onUpdated'])api.tabs[k]=event();
+ if(storage)api.storage=storage;
  globalThis.chrome=api;
  await import('../extension/background.mjs?test='+crypto.randomUUID());
  api.runtime.onInstalled.emit();await settle();
@@ -73,4 +75,19 @@ test('pending unsaved-page confirmation releases the serialized bridge queue',as
  assert(h.messages.some(m=>m.type==='ack'&&m.request==='pending-close'));
  h.port.onMessage.emit({v:1,epoch:s.epoch,request:'after-close',window:7,type:'refresh'});await settle();
  assert(h.messages.some(m=>m.type==='ack'&&m.request==='after-close'));finish();await settle();
+});
+
+
+test('attachment observation preserves pending partial session restoration',async()=>{
+ const {WindowMemory}=await import('../extension/window-memory.mjs');
+ const data={session:{},local:{}};const storage=Object.fromEntries(['session','local'].map(name=>[name,{async get(k){return {[k]:structuredClone(data[name][k])}},async set(v){Object.assign(data[name],structuredClone(v));}}]));
+ const saved=[1,2,3].map(id=>({id,url:'https://example.org/'+id})),stacks=[[1,2],...Array.from({length:9},()=>[])];
+ const memory=new WindowMemory(storage);await memory.reconcile(1,saved,stacks,2);await memory.reconcile(1,saved,stacks,3);await memory.flush();data.session={};
+ const h=await harness({storage,initialTabs:[{id:11,index:0,groupId:5,active:true,windowId:7,title:'One',url:saved[0].url}]});
+ h.api.debugger={async getTargets(){return []}};const s=h.messages.find(m=>m.type==='snapshot');
+ h.port.onMessage.emit({v:1,epoch:s.epoch,request:'observe',window:7,type:'attachments'});await settle();
+ assert(h.messages.some(m=>m.type==='attachments'&&m.available===true));h.tabs[0].active=false;
+ h.tabs.push({id:12,index:1,groupId:5,active:false,windowId:7,title:'Two',url:saved[1].url},{id:13,index:2,groupId:-1,active:true,windowId:7,title:'Three',url:saved[2].url});
+ h.api.tabs.onUpdated.emit(13,{},h.tabs[2]);await new Promise(r=>setTimeout(r,40));await settle();
+ const final=h.messages.filter(m=>m.type==='snapshot').at(-1);assert.equal(final.last[0],12);assert.deepEqual(final.recent,[13,12,11]);
 });

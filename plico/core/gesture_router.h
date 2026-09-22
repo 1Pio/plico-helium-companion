@@ -37,6 +37,7 @@ class GestureRouter {
   void SetRevealDelay(int milliseconds);
   GestureResult PointerSelect(TabId tab);
   GestureResult PointerSelectStack(int slot);
+  GestureResult PointerNavigateVertical(int direction);
   std::optional<std::int64_t> reveal_deadline() const { return deadline_; }
   bool editor_owns_input() const { return editor_; }
 

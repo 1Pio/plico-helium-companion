@@ -1,3 +1,4 @@
+import {debuggerStatus} from './debugger-status.mjs';
 import {defaults,normalizeSettings} from './settings.mjs';
 import {backToOpener} from './back.mjs';
 import {WindowMemory} from './window-memory.mjs';
@@ -48,7 +49,7 @@ async function handle(m){
  try{
   const current=await snapshot();if(!current)throw Error('No browser window');
   if(m.window!==current.state.window.id)throw Error('Window changed');
-  if(m.type!=='refresh'&&m.type!=='search')await navigationMemory.interacted(m.window);
+  if(m.type!=='refresh'&&m.type!=='search'&&m.type!=='attachments')await navigationMemory.interacted(m.window);
   if(m.type==='commit'){
    if(m.revision!==current.state.revision)throw Error('Browser changed; draft canceled');
    const order=validateCommit(m,current.tabs);
@@ -93,6 +94,9 @@ async function handle(m){
     else if(d.url)await chrome.tabs.create({windowId:m.window,url:d.url});
     else {const t=await chrome.tabs.create({windowId:m.window,url:'about:blank'});await chrome.search.query({text:d.query,tabId:t.id});}
    }
+  }else if(m.type==='attachments'){
+   const result=await debuggerStatus(chrome.debugger,current.tabs);
+   send({type:'attachments',request:m.request,window:m.window,...result});
   }else if(m.type==='back'){
    if(m.revision!==current.state.revision||m.tab!==current.state.active)throw Error('Active tab changed; back canceled');
    const t=current.tabs.find(t=>t.id===m.tab);
@@ -146,5 +150,5 @@ chrome.runtime.onStartup.addListener(()=>queue(connect));
 
 // Internal module exports for the isolated runtime qualification harness.
 // They add no runtime message or web-accessible extension surface.
-export {snapshot, handle, queue};
+export {snapshot, handle, queue, debuggerStatus};
 export const connectionEpoch=()=>epoch;

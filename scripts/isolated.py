@@ -27,7 +27,7 @@ def qualification_extension():
  (folder/'qualification-worker.mjs').write_text("import * as bridge from './background.mjs'; globalThis.__plicoQualification=bridge;\n")
  return folder
 
-def launch(qualify=False,restore=False):
+def launch(qualify=False,restore=False,addons=()):
  prepare()
  # Never attach to or restart the user's normal browser process.
  lines=subprocess.check_output(['ps','-axo','pid=,command='],text=True).splitlines()
@@ -35,7 +35,12 @@ def launch(qualify=False,restore=False):
  pressure=int(subprocess.check_output(['sysctl','-n','kern.memorystatus_vm_pressure_level'],text=True))
  if pressure!=1:raise SystemExit('Memory pressure is not Normal')
  extension=qualification_extension() if qualify else ROOT/'extension'
- args=[str(HELIUM),'--user-data-dir='+str(PROFILE),'--load-extension='+str(extension),'--no-first-run','--no-default-browser-check','--use-mock-keychain','--remote-debugging-port=0','--remote-debugging-address=127.0.0.1','--enable-logging=stderr']
+ extensions=[str(extension)]
+ for name in addons:
+  addon=LOCAL/'qualification-addons'/name
+  if not qualify or ',' in str(addon) or addon.resolve()!=addon or LOCAL/'qualification-addons' not in addon.parents or not (addon/'manifest.json').is_file():raise SystemExit('Unowned qualification addon')
+  extensions.append(str(addon))
+ args=[str(HELIUM),'--user-data-dir='+str(PROFILE),'--load-extension='+','.join(extensions),'--no-first-run','--no-default-browser-check','--use-mock-keychain','--remote-debugging-port=0','--remote-debugging-address=127.0.0.1','--enable-logging=stderr']
  args+=['--restore-last-session'] if restore else ['https://example.com','https://example.org']
  with (LOCAL/'helium.log').open('a') as log:
   env=os.environ.copy();env['PLICO_DIAGNOSTICS']='1'
@@ -43,7 +48,7 @@ def launch(qualify=False,restore=False):
  (LOCAL/'browser-pid.json').write_text(json.dumps({'pid':proc.pid,'profile':str(PROFILE),'browser_executable':str(HELIUM)}))
  print('Launched isolated Helium PID',proc.pid)
 if __name__=='__main__':
- parser=argparse.ArgumentParser();parser.add_argument('command',choices=['prepare','launch']);parser.add_argument('--qualify-bridge',action='store_true');parser.add_argument('--restore-session',action='store_true');parser.add_argument('--browser-version');args=parser.parse_args()
+ parser=argparse.ArgumentParser();parser.add_argument('command',choices=['prepare','launch']);parser.add_argument('--qualify-bridge',action='store_true');parser.add_argument('--restore-session',action='store_true');parser.add_argument('--browser-version');parser.add_argument('--qualification-addon',action='append',default=[]);args=parser.parse_args()
  if args.browser_version:
   if not args.qualify_bridge or not re.fullmatch(r'\d+(?:\.\d+){3}',args.browser_version):raise SystemExit('Rehearsal version requires qualification profile')
   folder=LOCAL/'update-rehearsal';app=folder/args.browser_version/'Helium.app'
@@ -53,4 +58,4 @@ if __name__=='__main__':
   subprocess.run(['codesign','--verify','--deep','--strict',str(app)],check=True)
   HELIUM=app/'Contents/MacOS/Helium'
  if args.qualify_bridge:PROFILE=LOCAL/'helium-qualification-profile'
- prepare() if args.command=='prepare' else launch(args.qualify_bridge,args.restore_session)
+ prepare() if args.command=='prepare' else launch(args.qualify_bridge,args.restore_session,args.qualification_addon)
