@@ -18,6 +18,7 @@
 #include "preferences.h"
 using namespace plico;
 static bool TraceEnabled(){return getenv("PLICO_DIAGNOSTICS")!=nullptr;}
+static BOOL PairingFailure(const char* reason,int error=0){if(TraceEnabled())fprintf(stderr,"plico: pairing unavailable: %s error=%d\n",reason,error);return NO;}
 static int64_t Now(){return (int64_t)(NSProcessInfo.processInfo.systemUptime*1000);}
 static NSArray* IDs(const std::vector<TabId>& v){NSMutableArray*a=[NSMutableArray array];for(auto id:v)[a addObject:@(id)];return a;}
 static std::vector<TabId> Vector(id a){std::vector<TabId>v;if([a isKindOfClass:NSArray.class])for(id x in a)if([x isKindOfClass:NSNumber.class])v.push_back([x longLongValue]);return v;}
@@ -226,14 +227,14 @@ static CGEventRef Tap(CGEventTapProxy proxy,CGEventType type,CGEventRef event,vo
  else if([type isEqual:@"inactive"]&&[m[@"epoch"]isEqual:self.epoch]){[self cancel];[self.commitTimer invalidate];self.pending=NO;self.pendingRequest=nil;self.resetOnSnapshot=NO;self.snapshot=nil;self.tabs=@{};[self.requests removeAllObjects];model.Reset(Layout{},std::nullopt);}
 }
 -(BOOL)paired{
- if(!heliumPID||!self.snapshot||![self.snapshot[@"window"][@"focused"]boolValue])return NO;
- if(NSWorkspace.sharedWorkspace.frontmostApplication.processIdentifier!=heliumPID)return NO;
+ if(!heliumPID||!self.snapshot||![self.snapshot[@"window"][@"focused"]boolValue])return PairingFailure("no focused snapshot");
+ if(NSWorkspace.sharedWorkspace.frontmostApplication.processIdentifier!=heliumPID)return PairingFailure("different foreground app");
  AXUIElementRef app=AXUIElementCreateApplication(heliumPID);AXUIElementSetMessagingTimeout(app,0.025);CFTypeRef win=nullptr;
- AXError error=AXUIElementCopyAttributeValue(app,kAXFocusedWindowAttribute,&win);CFRelease(app);if(error!=kAXErrorSuccess||!win)return NO;
+ AXError error=AXUIElementCopyAttributeValue(app,kAXFocusedWindowAttribute,&win);CFRelease(app);if(error!=kAXErrorSuccess||!win)return PairingFailure("AX focused window",error);
  AXUIElementSetMessagingTimeout((AXUIElementRef)win,0.025);CFTypeRef pos=nullptr,size=nullptr;AXUIElementCopyAttributeValue((AXUIElementRef)win,kAXPositionAttribute,&pos);AXUIElementCopyAttributeValue((AXUIElementRef)win,kAXSizeAttribute,&size);CFRelease(win);
- CGPoint p={};CGSize s={};BOOL okay=pos&&size&&CFGetTypeID(pos)==AXValueGetTypeID()&&CFGetTypeID(size)==AXValueGetTypeID()&&AXValueGetValue((AXValueRef)pos,(AXValueType)kAXValueCGPointType,&p)&&AXValueGetValue((AXValueRef)size,(AXValueType)kAXValueCGSizeType,&s);if(pos)CFRelease(pos);if(size)CFRelease(size);if(!okay)return NO;
+ CGPoint p={};CGSize s={};BOOL okay=pos&&size&&CFGetTypeID(pos)==AXValueGetTypeID()&&CFGetTypeID(size)==AXValueGetTypeID()&&AXValueGetValue((AXValueRef)pos,(AXValueType)kAXValueCGPointType,&p)&&AXValueGetValue((AXValueRef)size,(AXValueType)kAXValueCGSizeType,&s);if(pos)CFRelease(pos);if(size)CFRelease(size);if(!okay)return PairingFailure("AX window bounds");
  NSDictionary*w=self.snapshot[@"window"];
- if(fabs(p.x-[w[@"left"]doubleValue])>24||fabs(p.y-[w[@"top"]doubleValue])>24||fabs(s.width-[w[@"width"]doubleValue])>24||fabs(s.height-[w[@"height"]doubleValue])>24)return NO;
+ if(fabs(p.x-[w[@"left"]doubleValue])>24||fabs(p.y-[w[@"top"]doubleValue])>24||fabs(s.width-[w[@"width"]doubleValue])>24||fabs(s.height-[w[@"height"]doubleValue])>24)return PairingFailure("window bounds disagree");
  CGFloat screenHeight=CGDisplayBounds(CGMainDisplayID()).size.height;self.browserFrame=NSMakeRect(p.x,screenHeight-p.y-s.height,s.width,s.height);return YES;
 }
 -(BOOL)browserEditorFocused{
