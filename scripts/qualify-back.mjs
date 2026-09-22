@@ -11,7 +11,7 @@ const b=await browser();try{
    await sleep(100);
    const s=(await m.queue(m.snapshot)).state;
    if(s.window.id!==w.id||s.active!==child.id)throw Error('Fixture not focused');
-   await m.queue(()=>m.handle({v:1,epoch:m.connectionEpoch(),request:crypto.randomUUID(),window:w.id,revision:s.revision,type:'back'}));
+   await m.queue(()=>m.handle({v:1,epoch:m.connectionEpoch(),request:crypto.randomUUID(),window:w.id,revision:s.revision,type:'back',tab:child.id}));
    const tabs=await chrome.tabs.query({windowId:w.id});if(tabs.length!==1||tabs[0].id!==parent||!tabs[0].active)throw Error('Opener return failed');
    return {passed:['actual empty-history child closure','same-window opener activation'],keyboardRoute:false};
   }finally{await chrome.windows.remove(w.id)}

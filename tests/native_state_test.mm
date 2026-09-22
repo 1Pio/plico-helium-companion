@@ -15,5 +15,11 @@ int main(){@autoreleasepool{
  c.pending=YES;c.pendingRequest=@"closed-window";
  [c receive:@{@"v":@1,@"epoch":@"test",@"type":@"inactive"}];assert(!c.pending);assert(!c.snapshot);assert(c->model.committed().loose.empty());
  s[@"revision"]=@2;[c receive:s];assert(!c.pending);assert(c->model.committed().loose.size()==2);
+ PlicoBindings bindings;int delay=0;
+ NSDictionary*keys=@{@"left":@"h",@"down":@"j",@"up":@"k",@"right":@"l",@"toggle":@"o",@"new":@"t",@"edit":@";",@"copy":@"c",@"back":@"Backspace"};
+ assert(PlicoPreferences(@{@"revealDelayMs":@300,@"keys":keys},bindings,delay));assert(delay==300&&bindings.toggle=='o');
+ assert(!PlicoPreferences(@{@"revealDelayMs":@YES,@"keys":keys},bindings,delay));
+ assert(!PlicoPreferences(@{@"revealDelayMs":@0.5,@"keys":keys},bindings,delay));
+ NSMutableDictionary*bad=[keys mutableCopy];bad[@"toggle"]=@"h";assert(!PlicoPreferences(@{@"revealDelayMs":@150,@"keys":bad},bindings,delay));
  puts("Native rejection, causal resync, window-loss and revision checks passed");
 }}

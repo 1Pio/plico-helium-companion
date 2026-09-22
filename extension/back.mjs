@@ -12,6 +12,9 @@ export async function backToOpener(api,windowId,tabId){
   await api.update(opener.id,{active:true});
   const final=await api.get(tabId);
   if(final.windowId!==windowId||final.active||final.url!==before.url||final.pendingUrl||final.openerTabId!==opener.id)throw Error('Tab changed; close canceled');
-  await api.remove(tabId);return 'opener';
+  // Chromium may leave this promise pending when beforeunload is canceled.
+  // Never await it on the global navigation queue. Browser events reconcile
+  // the actual tab state; requesting closure does not prove it happened.
+  return {outcome:'closing',completion:api.remove(tabId)};
  }
 }

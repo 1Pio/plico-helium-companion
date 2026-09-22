@@ -6,6 +6,8 @@ const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const folder=path.join(root,'.local/qualification-extension');
 if(!fs.existsSync(path.join(root,'.local/helium-qualification-profile/.plico-isolated')))throw Error('Unmarked profile');
 for(const name of fs.readdirSync(path.join(root,'extension')))if(name!=='manifest.json'&&fs.statSync(path.join(root,'extension',name)).isFile())fs.copyFileSync(path.join(root,'extension',name),path.join(folder,name));
+// Keep the test-only worker entry while updating the rest of the manifest.
+const manifest=JSON.parse(fs.readFileSync(path.join(root,'extension/manifest.json'),'utf8'));manifest.background.service_worker='qualification-worker.mjs';fs.writeFileSync(path.join(folder,'manifest.json'),JSON.stringify(manifest,null,2)+'\n');
 const client=await browser();let created;
 try{
  const all=(await client.call('Target.getTargets')).targetInfos;

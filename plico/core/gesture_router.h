@@ -13,9 +13,9 @@ namespace plico {
 enum Modifier : unsigned { kCommand = 1, kControl = 2, kShift = 4, kOption = 8 };
 enum class Action {
   kOther, kLeft, kRight, kUp, kDown, kStack, kToggle, kRecent,
-  kEscape, kAccept, kNewDestination, kEditURL, kCopyURL,
+  kEscape, kAccept, kNewDestination, kEditURL, kCopyURL, kBack,
 };
-enum class HostAction { kNone, kNewDestination, kEditURL, kCopyURL };
+enum class HostAction { kNone, kNewDestination, kEditURL, kCopyURL, kBack };
 struct GestureResult {
   bool consumed = false;
   std::optional<Commit> commit;

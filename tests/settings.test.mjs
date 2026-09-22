@@ -1,0 +1,5 @@
+import{test}from'node:test';import assert from'node:assert/strict';import{defaults,normalizeSettings}from'../extension/settings.mjs';
+test('settings validate delay bounds and reserve ordinary editing',()=>{assert.deepEqual(normalizeSettings(defaults),defaults);for(const delay of [-1,2001,NaN,1.2])assert.throws(()=>normalizeSettings({...defaults,revealDelayMs:delay}));assert.throws(()=>normalizeSettings({...defaults,keys:{...defaults.keys,toggle:'c'}}));});
+test('shortcut conflicts reject the entire update',()=>{assert.throws(()=>normalizeSettings({...defaults,keys:{...defaults.keys,edit:'h'}}));assert.throws(()=>normalizeSettings({...defaults,keys:{...defaults.keys,left:'Backspace'}}));const value=normalizeSettings({...defaults,revealDelayMs:300,keys:{...defaults.keys,toggle:'o'}});assert.equal(value.keys.toggle,'o');assert.equal(value.revealDelayMs,300);});
+
+test('shift-sensitive punctuation is not offered for movement or copy',()=>{for(const action of ['left','copy','toggle','back'])assert.throws(()=>normalizeSettings({...defaults,keys:{...defaults.keys,edit:'e',[action]:';'}}));assert.deepEqual(normalizeSettings(defaults),defaults);});

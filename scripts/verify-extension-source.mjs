@@ -8,7 +8,7 @@ export async function verifyExtensionSource(client,sessionId){
  const off=client.on('Debugger.scriptParsed',(p,s)=>{if(s===sessionId)scripts.push(p);});
  try{
   await client.call('Debugger.enable',{},sessionId);
-  for(const name of ['background.mjs','model.mjs','window-memory.mjs','back.mjs']){
+  for(const name of ['background.mjs','model.mjs','window-memory.mjs','back.mjs','settings.mjs']){
    const script=scripts.find(s=>s.url.endsWith('/'+name));
    if(!script)throw Error('Worker has not loaded '+name+'; reload the isolated extension');
    const {scriptSource}=await client.call('Debugger.getScriptSource',{scriptId:script.scriptId},sessionId);

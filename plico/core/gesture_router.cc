@@ -93,13 +93,14 @@ GestureResult GestureRouter::KeyDown(Action action, unsigned modifiers,
   if (editor_) return result;
 
   if (action == Action::kNewDestination || action == Action::kEditURL ||
-      action == Action::kCopyURL) {
+      action == Action::kCopyURL || action == Action::kBack) {
     Cancel();
     result.consumed = true;
     if (!repeat) {
       result.host_action = action == Action::kNewDestination
           ? HostAction::kNewDestination : action == Action::kEditURL
-          ? HostAction::kEditURL : HostAction::kCopyURL;
+          ? HostAction::kEditURL : action == Action::kBack
+          ? HostAction::kBack : HostAction::kCopyURL;
     }
     return result;
   }

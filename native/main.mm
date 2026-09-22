@@ -15,6 +15,7 @@
 #include "extension_origin.h"
 #include "protocol.h"
 #include "keymap.h"
+#include "preferences.h"
 using namespace plico;
 static bool TraceEnabled(){return getenv("PLICO_DIAGNOSTICS")!=nullptr;}
 static int64_t Now(){return (int64_t)(NSProcessInfo.processInfo.systemUptime*1000);}
@@ -38,7 +39,7 @@ static unsigned Mods(CGEventFlags f){return ((f&kCGEventFlagMaskCommand)?kComman
 @end
 @interface Companion:NSObject<NSApplicationDelegate,NSTextFieldDelegate,NSTableViewDataSource,NSTableViewDelegate>{
 @public NavigatorModel model; GestureRouter* router; CFMachPortRef tap; CFRunLoopSourceRef tapSource;
- std::set<int> swallowed; pid_t heliumPID;
+ std::set<int> swallowed; pid_t heliumPID; PlicoBindings bindings;
 }
 @property(nonatomic,strong) NSDictionary* snapshot;
 @property(nonatomic,strong) NSDictionary* tabs;
@@ -71,6 +72,7 @@ static unsigned Mods(CGEventFlags f){return ((f&kCGEventFlagMaskCommand)?kComman
 -(void)cancel;
 -(void)apply:(GestureResult)r;
 -(BOOL)paired;
+-(BOOL)browserEditorFocused;
 -(void)showComposer:(BOOL)edit;
 -(void)layoutComposer;
 -(void)choose:(id)sender;
@@ -202,9 +204,11 @@ static CGEventRef Tap(CGEventTapProxy proxy,CGEventType type,CGEventRef event,vo
  NSString*type=m[@"type"];
  if([type isEqual:@"snapshot"]){
   if(!PlicoSnapshotValid(m))return;
+  PlicoBindings nextBindings;int delay=150;if(!PlicoPreferences(m[@"settings"],nextBindings,delay))return;
   if(self.epoch&&(![self.epoch isEqual:m[@"epoch"]]||[m[@"revision"]integerValue]<self.revision))return;
   Layout layout;layout.loose=Vector(m[@"loose"]);for(int s=0;s<10;s++){layout.stacks[s]=Vector(m[@"stacks"][s]);if([m[@"last"][s]isKindOfClass:NSNumber.class])layout.last_active[s]=[m[@"last"][s]longLongValue];}
   if(!NavigatorModel::Valid(layout))return;
+  bindings=nextBindings;router->SetRevealDelay(delay);
   BOOL changed=![self.epoch isEqual:m[@"epoch"]]||self.revision!=[m[@"revision"]integerValue];
   BOOL synchronized=self.pendingRequest&&[m[@"responseFor"]isEqual:self.pendingRequest];
   if(synchronized){self.pending=NO;self.pendingRequest=nil;[self.commitTimer invalidate];self.resetOnSnapshot=YES;}
@@ -232,6 +236,15 @@ static CGEventRef Tap(CGEventTapProxy proxy,CGEventType type,CGEventRef event,vo
  if(fabs(p.x-[w[@"left"]doubleValue])>24||fabs(p.y-[w[@"top"]doubleValue])>24||fabs(s.width-[w[@"width"]doubleValue])>24||fabs(s.height-[w[@"height"]doubleValue])>24)return NO;
  CGFloat screenHeight=CGDisplayBounds(CGMainDisplayID()).size.height;self.browserFrame=NSMakeRect(p.x,screenHeight-p.y-s.height,s.width,s.height);return YES;
 }
+-(BOOL)browserEditorFocused{
+ AXUIElementRef app=AXUIElementCreateApplication(heliumPID);AXUIElementSetMessagingTimeout(app,0.025);CFTypeRef element=nullptr;
+ AXError error=AXUIElementCopyAttributeValue(app,kAXFocusedUIElementAttribute,&element);CFRelease(app);
+ if(error!=kAXErrorSuccess||!element)return YES; // Unknown focus must preserve editing.
+ AXUIElementSetMessagingTimeout((AXUIElementRef)element,0.025);CFTypeRef role=nullptr;
+ error=AXUIElementCopyAttributeValue((AXUIElementRef)element,kAXRoleAttribute,&role);CFRelease(element);
+ BOOL editor=error!=kAXErrorSuccess||!role||CFEqual(role,kAXTextFieldRole)||CFEqual(role,kAXTextAreaRole)||CFEqual(role,kAXComboBoxRole);
+ if(role)CFRelease(role);return editor;
+}
 -(void)cancel{self.navigator.revealedTab=nil;router->Cancel();[self.revealTimer invalidate];self.revealTimer=nil;[self.searchTimer invalidate];self.searchTimer=nil;router->SetEditorOwnsInput(false);[self.panel orderOut:nil];[self.composer orderOut:nil];}
 -(void)render{
  if(model.mode()==Mode::kHidden){self.navigator.revealedTab=nil;[self.panel orderOut:nil];return;}if(![self paired]){[self cancel];return;}
@@ -240,6 +253,7 @@ static CGEventRef Tap(CGEventTapProxy proxy,CGEventType type,CGEventRef event,vo
 }
 -(void)apply:(GestureResult)r{
  if(r.commit){NSMutableArray*stacks=[NSMutableArray array];for(auto&s:r.commit->layout.stacks)[stacks addObject:IDs(s)];self.pending=YES;[self send:@{@"type":@"commit",@"loose":IDs(r.commit->layout.loose),@"stacks":stacks,@"activate":@(r.commit->activate)}];}
+ if(r.host_action==HostAction::kBack)[self send:@{@"type":@"back",@"tab":@(model.active().value_or(-1))}];
  if(r.host_action==HostAction::kCopyURL){NSString*url=self.tabs[@(model.active().value_or(-1))][@"url"];if(url){[NSPasteboard.generalPasteboard clearContents];[NSPasteboard.generalPasteboard setString:url forType:NSPasteboardTypeString];}}
  if(r.host_action==HostAction::kNewDestination||r.host_action==HostAction::kEditURL)[self showComposer:r.host_action==HostAction::kEditURL];
  [self render];
@@ -267,11 +281,14 @@ static CGEventRef Tap(CGEventTapProxy proxy,CGEventType type,CGEventRef event,vo
  if(self.pending||self.resetOnSnapshot)return e;
  if(type==kCGEventLeftMouseDown||type==kCGEventRightMouseDown){if(model.mode()!=Mode::kHidden){CGPoint p=CGEventGetLocation(e);p.y=CGDisplayBounds(CGMainDisplayID()).size.height-p.y;if(!NSPointInRect(p,self.panel.frame)){[self cancel];return nullptr;}}return e;}
  unsigned mods=Mods(CGEventGetFlags(e));
- if(type==kCGEventFlagsChanged){[self apply:router->ModifiersChanged(mods,Now())];return e;}
+ if(type==kCGEventFlagsChanged){auto r=router->ModifiersChanged(mods,Now());if(model.mode()==Mode::kHidden&&router->reveal_deadline()&&[self browserEditorFocused])router->Cancel();[self apply:r];return e;}
  if(type!=kCGEventKeyDown)return e;
  NSEvent*ne=[NSEvent eventWithCGEvent:e];NSString*ch=ne.charactersIgnoringModifiers.lowercaseString;
  char letter=ch.length==1&&[ch characterAtIndex:0]<128?(char)[ch characterAtIndex:0]:0;
- auto mapping=MapKey(key,letter,mods,model.mode());
+ auto mapping=MapKey(key,letter,mods,model.mode(),bindings);
+ // Hidden navigation must not hijack line/word editing or web-editor commands.
+ if(model.mode()==Mode::kHidden&&[self browserEditorFocused]&&
+    (mapping.action==Action::kLeft||mapping.action==Action::kRight||mapping.action==Action::kUp||mapping.action==Action::kDown||mapping.action==Action::kBack))mapping.action=Action::kOther;
  if(TraceEnabled()&&mapping.action!=Action::kOther)fprintf(stderr,"plico: navigation action=%d\n",(int)mapping.action);
  auto r=router->KeyDown(mapping.action,mods,CGEventGetIntegerValueField(e,kCGKeyboardEventAutorepeat),mapping.stack);[self apply:r];if(r.consumed){swallowed.insert(key);return nullptr;}return e;
 }

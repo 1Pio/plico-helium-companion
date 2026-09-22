@@ -58,3 +58,19 @@ test('new-tab placement never moves an externally relocated tab back',async()=>{
  h.api.tabs.onCreated.emit({...h.tabs.at(-1)});await settle();
  assert.equal(h.tabs.find(t=>t.id===3).windowId,8);assert(h.moveArguments.every(args=>args.windowId===undefined));
 });
+
+ test('back request cannot target a newer active tab or stale revision',async()=>{
+ const h=await harness(),s=h.messages.find(m=>m.type==='snapshot');let calls=0;h.api.tabs.goBack=async()=>{calls++};
+ for(const [request,tab,revision] of [['wrong-tab',2,s.revision],['old-revision',1,s.revision-1]]){h.port.onMessage.emit({v:1,epoch:s.epoch,request,window:7,revision,type:'back',tab});await settle();assert(h.messages.some(m=>m.type==='error'&&m.request===request));}
+ assert.equal(calls,0);
+ h.port.onMessage.emit({v:1,epoch:s.epoch,request:'valid-back',window:7,revision:s.revision,type:'back',tab:1});await settle();assert.equal(calls,1);
+});
+
+test('pending unsaved-page confirmation releases the serialized bridge queue',async()=>{
+ const h=await harness(),s=h.messages.find(m=>m.type==='snapshot');h.tabs[0].openerTabId=2;
+ h.api.tabs.goBack=async()=>{throw Error('Cannot find a next page in history.')};let finish;h.api.tabs.remove=()=>new Promise(r=>finish=r);
+ h.port.onMessage.emit({v:1,epoch:s.epoch,request:'pending-close',window:7,revision:s.revision,type:'back',tab:1});await settle();
+ assert(h.messages.some(m=>m.type==='ack'&&m.request==='pending-close'));
+ h.port.onMessage.emit({v:1,epoch:s.epoch,request:'after-close',window:7,type:'refresh'});await settle();
+ assert(h.messages.some(m=>m.type==='ack'&&m.request==='after-close'));finish();await settle();
+});

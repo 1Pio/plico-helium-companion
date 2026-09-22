@@ -1,3 +1,4 @@
+import {defaults,normalizeSettings} from './settings.mjs';
 import {backToOpener} from './back.mjs';
 import {WindowMemory} from './window-memory.mjs';
 import {VERSION,validateCommit,destination} from './model.mjs';
@@ -13,6 +14,9 @@ function requestIcons(tabs){
  }
 }
 const navigationMemory=new WindowMemory(chrome.storage);
+let settings=defaults;
+async function loadSettings(){try{const saved=(await chrome.storage?.local?.get('plicoSettings'))?.plicoSettings;settings=saved?normalizeSettings(saved):defaults;}catch{settings=defaults;}}
+chrome.storage?.onChanged?.addListener((changes,area)=>{if(area==='local'&&changes.plicoSettings)queue(async()=>{await loadSettings();await snapshot();});});
 const HOST='cc.helwig.plico.companion', PREFIX='plico:';
 let snapshotTimer=null,lastIconFingerprint='';
 let port=null, epoch='', revision=0, fingerprint='', chain=Promise.resolve(), lastWindow=null, status='Disconnected', seen=new Set();
@@ -31,11 +35,11 @@ async function snapshot(responseFor=null){
  const loose=[],stacks=Array.from({length:10},()=>[]);
  for(const t of tabs)(slots.has(t.groupId)?stacks[slots.get(t.groupId)]:loose).push(t.id);
  const active=tabs.find(t=>t.active)?.id;
- const fp=JSON.stringify([win.id,active,tabs.map(t=>[t.id,t.index,t.groupId]),groups.map(g=>[g.id,g.title])]);
+ const fp=JSON.stringify([settings,win.id,active,tabs.map(t=>[t.id,t.index,t.groupId]),groups.map(g=>[g.id,g.title])]);
  if(fp!==fingerprint){revision++;fingerprint=fp;}
  const {recent,last}=await navigationMemory.reconcile(win.id,tabs,stacks,active);
  const iconFingerprint=JSON.stringify(tabs.map(t=>[t.id,t.url,t.favIconUrl]));
- const state={type:'snapshot',responseFor,revision,window:{id:win.id,focused:win.focused,left:win.left,top:win.top,width:win.width,height:win.height},active,loose,stacks,last,recent,tabs:tabs.map(t=>({id:t.id,title:t.title||'Untitled',url:t.url||'',audible:!!t.audible,discarded:!!t.discarded,pinned:!!t.pinned,groupId:t.groupId}))};
+ const state={type:'snapshot',settings,responseFor,revision,window:{id:win.id,focused:win.focused,left:win.left,top:win.top,width:win.width,height:win.height},active,loose,stacks,last,recent,tabs:tabs.map(t=>({id:t.id,title:t.title||'Untitled',url:t.url||'',audible:!!t.audible,discarded:!!t.discarded,pinned:!!t.pinned,groupId:t.groupId}))};
  send(state);if(iconFingerprint!==lastIconFingerprint){lastIconFingerprint=iconFingerprint;requestIcons(tabs);}return {state,tabs,groups};
 }
 async function handle(m){
@@ -90,14 +94,17 @@ async function handle(m){
     else {const t=await chrome.tabs.create({windowId:m.window,url:'about:blank'});await chrome.search.query({text:d.query,tabId:t.id});}
    }
   }else if(m.type==='back'){
-   const t=current.tabs.find(t=>t.id===current.state.active);
-   await backToOpener(chrome.tabs,m.window,t.id);
+   if(m.revision!==current.state.revision||m.tab!==current.state.active)throw Error('Active tab changed; back canceled');
+   const t=current.tabs.find(t=>t.id===m.tab);
+   const result=await backToOpener(chrome.tabs,m.window,t.id);
+   if(result?.completion)result.completion.catch(error=>{status='Back close failed: '+error.message;scheduleSnapshot();});
   }else if(m.type!=='refresh')throw Error('Unknown request');
   send({type:'ack',request:m.request});await snapshot(m.request);
  }catch(e){send({type:'error',request:m.request,message:e.message});await snapshot(m.request);}
 }
 async function connect(){
  if(port)return;
+ await loadSettings();
  epoch=crypto.randomUUID();revision=0;fingerprint='';lastIconFingerprint='';seen.clear();
  port=chrome.runtime.connectNative(HOST);status='Connecting';
  port.onMessage.addListener(m=>queue(()=>handle(m)));
