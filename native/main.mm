@@ -373,14 +373,14 @@ static CGEventRef Tap(CGEventTapProxy proxy,CGEventType type,CGEventRef event,vo
    for(NSDictionary*item in self.navigator.hits)if(NSPointInRect(local,[item[@"rect"]rectValue])){hit=YES;break;}
    if(!NSPointInRect(p,self.panel.frame)||!hit){[self cancel];return nullptr;}}return e;}
  unsigned mods=Mods(CGEventGetFlags(e));
- if(type==kCGEventFlagsChanged){auto r=router->ModifiersChanged(mods,Now());if(model.mode()==Mode::kHidden&&router->reveal_deadline()&&[self browserEditorFocused])router->Cancel();[self apply:r];return e;}
+ if(type==kCGEventFlagsChanged){auto r=router->ModifiersChanged(mods,Now());[self apply:r];return e;}
  if(type!=kCGEventKeyDown)return e;
  NSEvent*ne=[NSEvent eventWithCGEvent:e];NSString*ch=ne.charactersIgnoringModifiers.lowercaseString;
  char letter=ch.length==1&&[ch characterAtIndex:0]<128?(char)[ch characterAtIndex:0]:0;
  auto mapping=MapKey(key,letter,mods,model.mode(),bindings);
- // Hidden navigation must not hijack line/word editing or web-editor commands.
- if(model.mode()==Mode::kHidden&&[self browserEditorFocused]&&
-    (mapping.action==Action::kLeft||mapping.action==Action::kRight||mapping.action==Action::kUp||mapping.action==Action::kDown||mapping.action==Action::kBack))mapping.action=Action::kOther;
+ // Dedicated navigation wins over page focus, including unknown/loading focus.
+ // Back remains a text-editing command in an editor, even after bare-hold reveal.
+ if(mapping.action==Action::kBack&&[self browserEditorFocused])mapping.action=Action::kOther;
  if(TraceEnabled()&&mapping.action!=Action::kOther)fprintf(stderr,"plico: navigation action=%d\n",(int)mapping.action);
  auto r=router->KeyDown(mapping.action,mods,CGEventGetIntegerValueField(e,kCGKeyboardEventAutorepeat),mapping.stack);[self apply:r];if(r.consumed){swallowed.insert(key);return nullptr;}return e;
 }
