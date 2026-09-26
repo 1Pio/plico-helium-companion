@@ -20,6 +20,10 @@ int main(){@autoreleasepool{
  assert(PlicoPreferences(@{@"revealDelayMs":@300,@"keys":keys},bindings,delay));assert(delay==300&&bindings.toggle=='o');
  assert(!PlicoPreferences(@{@"revealDelayMs":@YES,@"keys":keys},bindings,delay));
  assert(!PlicoPreferences(@{@"revealDelayMs":@0.5,@"keys":keys},bindings,delay));
+ NSMutableArray*slots=[NSMutableArray array];for(int i=0;i<10;i++)[slots addObject:NSNull.null];slots[9]=@{@"key":@"0",@"modifiers":@2};
+ assert(PlicoPreferences(@{@"revealDelayMs":@150,@"keys":keys,@"slots":slots},bindings,delay));assert(bindings.slots[9].key==29&&bindings.slots[9].modifiers==2);
+ for(id invalid in @[@{@"key":@"0",@"modifiers":@1},@{@"key":@0,@"modifiers":@2},@{@"key":@"0",@"modifiers":@4294967297},@{@"key":@"0",@"modifiers":@YES}]){slots[9]=invalid;assert(!PlicoPreferences(@{@"revealDelayMs":@150,@"keys":keys,@"slots":slots},bindings,delay));}
+ slots[9]=@{@"key":@"0",@"modifiers":@2};slots[0]=slots[9];assert(!PlicoPreferences(@{@"revealDelayMs":@150,@"keys":keys,@"slots":slots},bindings,delay));
  NSMutableDictionary*bad=[keys mutableCopy];bad[@"toggle"]=@"h";assert(!PlicoPreferences(@{@"revealDelayMs":@150,@"keys":bad},bindings,delay));
  // External reorder while a close confirmation is outstanding must survive timeout.
  s[@"revision"]=@3;s[@"loose"]=@[@1,@2];[c receive:s];c->model.Begin(Mode::kCommandHold);c.actionRequest=@"close";c.actionKind=@"close";c.actionTab=@2;

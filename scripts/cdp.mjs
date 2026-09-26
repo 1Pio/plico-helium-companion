@@ -12,7 +12,7 @@ async function connect(url){
  const ws=new WebSocket(url);await new Promise((resolve,reject)=>{ws.onopen=resolve;ws.onerror=reject;});let next=0;const pending=new Map(),listeners=new Map();
  ws.onmessage=({data})=>{const m=JSON.parse(data);for(const f of listeners.get(m.method)||[])f(m.params,m.sessionId);if(m.id&&pending.has(m.id)){const p=pending.get(m.id);pending.delete(m.id);clearTimeout(p.timer);m.error?p.reject(Error(m.error.message)):p.resolve(m.result);}};
  ws.onclose=()=>{for(const p of pending.values()){clearTimeout(p.timer);p.reject(Error('Disconnected'));}pending.clear();};
- return {on(method,fn){if(!listeners.has(method))listeners.set(method,new Set());listeners.get(method).add(fn);return ()=>listeners.get(method)?.delete(fn);},call(method,params={},sessionId){return new Promise((resolve,reject)=>{const id=++next;const timer=setTimeout(()=>{pending.delete(id);reject(Error('CDP timeout'))},5000);pending.set(id,{resolve,reject,timer});ws.send(JSON.stringify({id,method,params,...(sessionId?{sessionId}:{})}));});},close(){ws.close();}};
+ return {on(method,fn){if(!listeners.has(method))listeners.set(method,new Set());listeners.get(method).add(fn);return ()=>listeners.get(method)?.delete(fn);},call(method,params={},sessionId){return new Promise((resolve,reject)=>{const id=++next;const timer=setTimeout(()=>{pending.delete(id);reject(Error('CDP timeout: '+method))},5000);pending.set(id,{resolve,reject,timer});ws.send(JSON.stringify({id,method,params,...(sessionId?{sessionId}:{})}));});},close(){ws.close();}};
 }
 if(process.argv[1]===fileURLToPath(import.meta.url)){
  const client=await browser();try{

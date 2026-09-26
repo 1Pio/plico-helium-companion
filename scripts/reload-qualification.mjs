@@ -11,12 +11,10 @@ const manifest=JSON.parse(fs.readFileSync(path.join(root,'extension/manifest.jso
 const client=await browser();let created;
 try{
  const all=(await client.call('Target.getTargets')).targetInfos;
- let page=all.find(t=>t.type==='page'&&t.url==='chrome://extensions/');
- if(!page){created=(await client.call('Target.createTarget',{url:'chrome://extensions/'})).targetId;page={targetId:created};}
- const {sessionId}=await client.call('Target.attachToTarget',{targetId:page.targetId,flatten:true});
- const r=await client.call('Runtime.evaluate',{expression:`(async()=>{await chrome.developerPrivate.updateProfileConfiguration({inDeveloperMode:true});const e=await chrome.developerPrivate.reload('baedceamflgfanjingjiinnhmhfjopbk',{failQuietly:true,populateErrorForUnpacked:true});if(e)throw Error(JSON.stringify(e));return true})()`,awaitPromise:true,returnByValue:true},sessionId);
- if(r.exceptionDetails)throw Error(r.exceptionDetails.exception?.description);
- let worker;for(let i=0;i<20;i++){worker=(await client.call('Target.getTargets')).targetInfos.find(t=>t.type==='service_worker'&&t.url.includes('baedceam'));if(worker)break;await new Promise(r=>setTimeout(r,100));}
+ const previous=all.find(t=>t.type==='service_worker'&&t.url.includes('baedceam'));if(!previous)throw Error('Qualification worker not running');
+ const {sessionId}=await client.call('Target.attachToTarget',{targetId:previous.targetId,flatten:true});
+ await client.call('Runtime.evaluate',{expression:'setTimeout(()=>chrome.runtime.reload(),50);true',returnByValue:true},sessionId);
+ let worker;for(let i=0;i<20;i++){worker=(await client.call('Target.getTargets')).targetInfos.find(t=>t.type==='service_worker'&&t.url.includes('baedceam')&&t.targetId!==previous.targetId);if(worker)break;await new Promise(r=>setTimeout(r,100));}
  if(!worker)throw Error('Reloaded worker did not start');
  const w=await client.call('Target.attachToTarget',{targetId:worker.targetId,flatten:true});let ready=false;for(let i=0;i<20;i++){const r=await client.call('Runtime.evaluate',{expression:'!!globalThis.__plicoQualification',returnByValue:true},w.sessionId);if(r.result.value){ready=true;break;}await new Promise(r=>setTimeout(r,100));}if(!ready)throw Error('Worker initialization incomplete');await verifyExtensionSource(client,w.sessionId);console.log('Current extension modules verified in the running isolated worker');
 }finally{if(created)await client.call('Target.closeTarget',{targetId:created});client.close();}

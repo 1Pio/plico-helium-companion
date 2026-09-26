@@ -1,3 +1,4 @@
+import {GroupSlots} from './group-slots.mjs';
 import {debuggerStatus} from './debugger-status.mjs';
 import {defaults,migrateSettings} from './settings.mjs';
 import {backToOpener} from './back.mjs';
@@ -17,8 +18,9 @@ function requestIcons(tabs){
  }
 }
 const navigationMemory=new WindowMemory(chrome.storage);
+const groupSlots=new GroupSlots(chrome.storage);
 let settings=defaults;
-async function loadSettings(){try{const saved=(await chrome.storage?.local?.get('plicoSettings'))?.plicoSettings;settings=saved?migrateSettings(saved):defaults;}catch{settings=defaults;}}
+async function loadSettings(){try{const saved=(await chrome.storage?.local?.get('plicoSettings'))?.plicoSettings;settings=saved?migrateSettings(saved):defaults;if(saved&&JSON.stringify(saved)!==JSON.stringify(settings))await chrome.storage.local.set({plicoSettings:settings});}catch{settings=defaults;}}
 chrome.storage?.onChanged?.addListener((changes,area)=>{if(area==='local'&&changes.plicoSettings)queue(async()=>{await loadSettings();await snapshot();});});
 const HOST='cc.helwig.plico.companion', PREFIX='plico:';
 let snapshotTimer=null,lastIconFingerprint='';
@@ -29,12 +31,13 @@ function queue(fn){chain=chain.then(()=>fn()).catch(e=>{status=e.message;console
 async function snapshot(responseFor=null){
  const wins=await chrome.windows.getAll({windowTypes:['normal']});
  await navigationMemory.beginSession(wins.map(w=>w.id));
+ await groupSlots.beginSession(wins.map(w=>w.id));
  const win=wins.find(w=>w.focused)||wins.find(w=>w.id===lastWindow)||wins[0];
  if(!win){send({type:'inactive'});return null;}
  lastWindow=win.id;
  const tabs=await chrome.tabs.query({windowId:win.id});
  const groups=await chrome.tabGroups.query({windowId:win.id});
- const slots=new Map(groups.filter(g=>/^plico:(?:[1-9]|10)$/.test(g.title)).map(g=>[g.id,Number(g.title.slice(PREFIX.length))-1]));
+ const slots=await groupSlots.resolve(win.id,groups,tabs);
  const loose=[],stacks=Array.from({length:10},()=>[]);
  for(const t of tabs)(slots.has(t.groupId)?stacks[slots.get(t.groupId)]:loose).push(t.id);
  const active=tabs.find(t=>t.active)?.id;
@@ -43,7 +46,7 @@ async function snapshot(responseFor=null){
  const {recent,last}=await navigationMemory.reconcile(win.id,tabs,stacks,active);
  const iconFingerprint=JSON.stringify(tabs.map(t=>[t.id,t.url,t.favIconUrl]));
  const state={type:'snapshot',settings,responseFor,revision,window:{id:win.id,focused:win.focused,left:win.left,top:win.top,width:win.width,height:win.height},active,loose,stacks,last,recent,tabs:tabs.map(t=>({id:t.id,title:t.title||'Untitled',url:t.url||'',audible:!!t.audible,muted:!!t.mutedInfo?.muted,discarded:!!t.discarded,pinned:!!t.pinned,groupId:t.groupId}))};
- send(state);if(iconFingerprint!==lastIconFingerprint){lastIconFingerprint=iconFingerprint;requestIcons(tabs);}return {state,tabs,groups};
+ send(state);if(iconFingerprint!==lastIconFingerprint){lastIconFingerprint=iconFingerprint;requestIcons(tabs);}return {state,tabs,groups,slots};
 }
 async function handle(m){
  if(!m||m.v!==VERSION||m.epoch!==epoch||typeof m.request!=='string'||m.request.length>80||seen.has(m.request))return;
@@ -51,7 +54,7 @@ async function handle(m){
  try{
   const current=await snapshot();if(!current)throw Error('No browser window');
   if(m.window!==current.state.window.id)throw Error('Window changed');
-  if(m.type!=='refresh'&&m.type!=='search'&&m.type!=='attachments')await navigationMemory.interacted(m.window);
+  if(m.type!=='refresh'&&m.type!=='search'&&m.type!=='attachments'){await navigationMemory.interacted(m.window);await groupSlots.interacted(m.window);}
   if(m.type==='commit'){
    if(m.revision!==current.state.revision)throw Error('Browser changed; draft canceled');
    const order=validateCommit(m,current.tabs);
@@ -64,7 +67,10 @@ async function handle(m){
    const wantedChanged=JSON.stringify([m.loose,m.stacks])!==JSON.stringify([current.state.loose,current.state.stacks]);
    if(wantedChanged){
     if(current.tabs.some(t=>t.pinned))throw Error('Unpin tabs before rearranging this window');
-    if(current.groups.some(g=>!/^plico:(?:[1-9]|10)$/.test(g.title)))throw Error('This window contains non-Plico groups; arrangement preserved');
+    if(current.groups.some(g=>!current.slots.has(g.id)))throw Error('More than ten native groups: free a stack slot before rearranging');
+    const metadata=new Map(current.groups.map(g=>[current.slots.get(g.id),{title:g.title,color:g.color,collapsed:g.collapsed}]));
+    const liveGroups=await chrome.tabGroups.query({windowId:m.window});
+    if(JSON.stringify(liveGroups.map(g=>[g.id,g.title,g.color,g.collapsed]))!==JSON.stringify(current.groups.map(g=>[g.id,g.title,g.color,g.collapsed])))throw Error('Groups changed; draft canceled');
     const grouped=current.tabs.filter(t=>t.groupId!==-1).map(t=>t.id);
     await verify();
     if(grouped.length){await chrome.tabs.ungroup(grouped);expected=expected.map(t=>({...t,groupId:-1}));}
@@ -76,7 +82,8 @@ async function handle(m){
      const id=await chrome.tabs.group({tabIds:m.stacks[s],createProperties:{windowId:m.window}});
      expected=expected.map(t=>m.stacks[s].includes(t.id)?{...t,groupId:id}:t);
      await verify();
-     await chrome.tabGroups.update(id,{title:PREFIX+(s+1),color:'grey',collapsed:true});
+     await groupSlots.assign(m.window,id,s);
+     await chrome.tabGroups.update(id,metadata.get(s)||{title:PREFIX+(s+1),color:'grey',collapsed:true});
     }
    }
    await verify();
@@ -144,7 +151,8 @@ async function placeNewTab(created){
  const tab=await chrome.tabs.get(created.id);
  if(tab.windowId!==created.windowId||tab.pinned)return;
  const groups=await chrome.tabGroups.query({windowId:tab.windowId});
- const owned=new Set(groups.filter(g=>/^plico:(?:[1-9]|10)$/.test(g.title)).map(g=>g.id));
+ const groupedTabs=await chrome.tabs.query({windowId:tab.windowId});
+ const owned=new Set((await groupSlots.resolve(tab.windowId,groups,groupedTabs)).keys());
  if(tab.groupId!==-1&&!owned.has(tab.groupId))return;
  const live=await chrome.tabs.get(tab.id);
  if(!port||live.windowId!==tab.windowId||live.groupId!==tab.groupId||live.pinned)return;
@@ -157,7 +165,7 @@ async function placeNewTab(created){
 }
 chrome.tabs.onCreated.addListener(t=>{if(port)queue(async()=>{await placeNewTab(t);await snapshot();});});
 chrome.tabs.onActivated.addListener(({windowId,tabId})=>{navigationMemory.activate(windowId,tabId);scheduleSnapshot();});
-chrome.windows.onRemoved?.addListener(id=>navigationMemory.forget(id));
+chrome.windows.onRemoved?.addListener(id=>{navigationMemory.forget(id);groupSlots.forget(id);});
 for(const event of [chrome.tabs.onRemoved,chrome.tabs.onMoved,chrome.tabs.onAttached,chrome.tabs.onDetached,chrome.tabs.onUpdated,chrome.tabGroups.onCreated,chrome.tabGroups.onUpdated,chrome.tabGroups.onRemoved,chrome.windows.onFocusChanged,chrome.windows.onBoundsChanged])event.addListener(scheduleSnapshot);
 chrome.runtime.onInstalled.addListener(()=>queue(connect));
 chrome.runtime.onStartup.addListener(()=>queue(connect));

@@ -3,6 +3,7 @@
 static BOOL PlicoDark(NSView*v){return [[v.effectiveAppearance bestMatchFromAppearancesWithNames:@[NSAppearanceNameAqua,NSAppearanceNameDarkAqua]]isEqual:NSAppearanceNameDarkAqua];}
 static NSColor* PlicoInk(NSView*v,BOOL secondary){return [NSColor colorWithWhite:PlicoDark(v)?(secondary?0.66:0.94):(secondary?0.39:0.12) alpha:1];}
 static void PlicoText(NSString*text,NSRect rect,CGFloat size,NSFontWeight weight,NSColor*color){NSMutableParagraphStyle*p=[NSMutableParagraphStyle new];p.lineBreakMode=NSLineBreakByTruncatingTail;[(text?:@"")drawInRect:rect withAttributes:@{NSFontAttributeName:[NSFont systemFontOfSize:size weight:weight],NSForegroundColorAttributeName:color,NSParagraphStyleAttributeName:p}];}
+static void PlicoRightText(NSString*text,NSRect rect,CGFloat size,NSColor*color){NSMutableParagraphStyle*p=[NSMutableParagraphStyle new];p.alignment=NSTextAlignmentRight;p.lineBreakMode=NSLineBreakByTruncatingTail;[(text?:@"")drawInRect:rect withAttributes:@{NSFontAttributeName:[NSFont systemFontOfSize:size],NSForegroundColorAttributeName:color,NSParagraphStyleAttributeName:p}];}
 static NSImage* PlicoSymbol(NSString*name,NSColor*color){NSImage*symbol=[NSImage imageWithSystemSymbolName:name accessibilityDescription:nil];if(!symbol)return nil;NSImage*result=[symbol copy];[result setTemplate:NO];[result lockFocus];[color set];NSRectFillUsingOperation(NSMakeRect(0,0,result.size.width,result.size.height),NSCompositingOperationSourceAtop);[result unlockFocus];return result;}
 static NSString* PlicoDomain(NSString*url){NSURL*u=[NSURL URLWithString:url?:@""];NSString*host=u.host;if(host.length)return u.port?[NSString stringWithFormat:@"%@:%@",host,u.port]:host;return u.scheme.length?[u.scheme stringByAppendingString:@":"]:@"";}
 @interface PlicoMaterial:NSVisualEffectView
@@ -27,16 +28,16 @@ static NSString* PlicoDomain(NSString*url){NSURL*u=[NSURL URLWithString:url?:@""
 -(BOOL)isFlipped{return YES;}
 -(void)drawRect:(NSRect)dirty{
  NSDictionary*r=self.row;BOOL header=[r[@"kind"]isEqual:@"header"];
- if(header){PlicoText(r[@"title"],NSMakeRect(12,9,self.bounds.size.width-24,20),11,NSFontWeightMedium,PlicoInk(self,YES));return;}
+ if(header){PlicoText(r[@"title"],NSMakeRect(12,8,self.bounds.size.width-24,18),11,NSFontWeightMedium,PlicoInk(self,YES));return;}
  NSString*symbol=[r[@"kind"]isEqual:@"typed"]?@"arrow.up.right":[r[@"kind"]isEqual:@"tab"]?@"globe":[r[@"location"]isEqual:@"Bookmark"]?@"bookmark":@"clock.arrow.circlepath";
  NSImage*icon=self.icon?:PlicoSymbol(symbol,PlicoInk(self,YES));
- [PlicoInk(self,YES)set];[icon drawInRect:NSMakeRect(12,15,20,20) fromRect:NSZeroRect operation:NSCompositingOperationSourceOver fraction:1 respectFlipped:YES hints:nil];
- CGFloat width=MAX(80,self.bounds.size.width-164);
- PlicoText(r[@"title"],NSMakeRect(44,6,width,20),13,NSFontWeightMedium,PlicoInk(self,NO));
+ [PlicoInk(self,YES)set];[icon drawInRect:NSMakeRect(12,14,20,20) fromRect:NSZeroRect operation:NSCompositingOperationSourceOver fraction:1 respectFlipped:YES hints:nil];
+ CGFloat width=MAX(32,self.bounds.size.width-164);
+ PlicoText(r[@"title"],NSMakeRect(44,6,width,19),13,NSFontWeightMedium,PlicoInk(self,NO));
  NSString*detail=[r[@"kind"]isEqual:@"typed"]?r[@"location"]:PlicoDomain(r[@"url"]);
  if([r[@"kind"]isEqual:@"tab"])detail=[detail stringByAppendingFormat:@" · %@",r[@"location"]];
- PlicoText(detail,NSMakeRect(44,26,width,18),11,NSFontWeightRegular,PlicoInk(self,YES));
+ PlicoText(detail,NSMakeRect(44,25,width,17),11,NSFontWeightRegular,PlicoInk(self,YES));
  NSString*action=[r[@"kind"]isEqual:@"tab"]?@"Switch to tab":[r[@"kind"]isEqual:@"typed"]?@"↵":@"Open";
- PlicoText(action,NSMakeRect(self.bounds.size.width-106,17,98,18),11,NSFontWeightRegular,PlicoInk(self,YES));
+ PlicoRightText(action,NSMakeRect(self.bounds.size.width-108,16,96,18),11,PlicoInk(self,YES));
 }
 @end

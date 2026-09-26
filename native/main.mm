@@ -59,6 +59,7 @@ static unsigned Mods(CGEventFlags f){return ((f&kCGEventFlagMaskCommand)?kComman
 @property(nonatomic,strong) PlicoMaterial* inputMaterial;
 @property(nonatomic,strong) PlicoMaterial* resultMaterial;
 @property(nonatomic,strong) NSTextField* composerHint;
+@property(nonatomic,strong) NSTextField* composerActions;
 @property(nonatomic,copy) NSString* theme;
 @property(nonatomic,copy) NSString* actionRequest;
 @property(nonatomic,copy) NSString* actionKind;
@@ -152,7 +153,7 @@ static CGEventRef Tap(CGEventTapProxy proxy,CGEventType type,CGEventRef event,vo
    // Root coordinates are unflipped; this drawing view is flipped.
    c.stackMaterial.frame=NSMakeRect(surface.origin.x,self.bounds.size.height-NSMaxY(surface),surface.size.width,surface.size.height);c.stackMaterial.hidden=NO;[c.stackMaterial refresh];
    PlicoText([NSString stringWithFormat:@"Stack %d",i.slot+1],NSMakeRect(left+14,top+11,i.width-110,18),11,NSFontWeightMedium,secondary);
-   PlicoText([NSString stringWithFormat:@"%ld / %lu",(long)index+1,tabs.size()],NSMakeRect(left+i.width-70,top+11,60,18),11,NSFontWeightRegular,secondary);
+   PlicoRightText([NSString stringWithFormat:@"%ld / %lu",(long)index+1,tabs.size()],NSMakeRect(left+i.width-96,top+11,82,18),11,secondary);
    for(NSInteger row=index-before;row<=index+after;row++)tab(tabs[row],NSMakeRect(left,y+5+(row-index)*rowHeight,i.width,rowHeight),YES,row==index);
   }else{
    highlight(rect);PlicoText([NSString stringWithFormat:@"%d",i.slot+1],NSMakeRect(x+14,y+24,30,22),15,NSFontWeightMedium,secondary);
@@ -209,12 +210,13 @@ static CGEventRef Tap(CGEventTapProxy proxy,CGEventType type,CGEventRef event,vo
  self.composer.animationBehavior=NSWindowAnimationBehaviorNone;self.composer.appearance=self.panel.appearance;self.composer.title=@"Plico Search";self.composer.level=NSFloatingWindowLevel;self.composer.opaque=NO;self.composer.backgroundColor=NSColor.clearColor;self.composer.hasShadow=YES;self.composer.collectionBehavior=self.panel.collectionBehavior;
  self.composer.hasShadow=NO;
  self.inputMaterial=[PlicoMaterial new];self.resultMaterial=[PlicoMaterial new];[self.composer.contentView addSubview:self.inputMaterial];[self.composer.contentView addSubview:self.resultMaterial];
- self.field=[[NSTextField alloc]initWithFrame:NSZeroRect];self.field.font=[NSFont systemFontOfSize:21 weight:NSFontWeightRegular];self.field.focusRingType=NSFocusRingTypeNone;self.field.bordered=NO;self.field.drawsBackground=NO;self.field.placeholderAttributedString=[[NSAttributedString alloc]initWithString:@"Search or enter an address" attributes:@{NSForegroundColorAttributeName:NSColor.secondaryLabelColor}];self.field.delegate=self;[self.inputMaterial addSubview:self.field];
- NSTextField*search=[NSTextField labelWithString:@"⌕"];search.font=[NSFont systemFontOfSize:25];search.textColor=NSColor.secondaryLabelColor;search.frame=NSMakeRect(18,20,26,30);[self.inputMaterial addSubview:search];
+ self.field=[[NSTextField alloc]initWithFrame:NSZeroRect];self.field.font=[NSFont systemFontOfSize:18 weight:NSFontWeightRegular];self.field.focusRingType=NSFocusRingTypeNone;self.field.bordered=NO;self.field.usesSingleLineMode=YES;self.field.cell.scrollable=YES;self.field.drawsBackground=NO;self.field.placeholderAttributedString=[[NSAttributedString alloc]initWithString:@"Search or enter an address" attributes:@{NSForegroundColorAttributeName:NSColor.secondaryLabelColor,NSFontAttributeName:self.field.font}];self.field.delegate=self;[self.inputMaterial addSubview:self.field];
+ NSImageView*search=[[NSImageView alloc]initWithFrame:NSMakeRect(24,22,20,20)];search.image=[NSImage imageWithSystemSymbolName:@"magnifyingglass" accessibilityDescription:@"Search"];search.contentTintColor=NSColor.secondaryLabelColor;[self.inputMaterial addSubview:search];
  NSButton*submit=[NSButton buttonWithTitle:@"↵" target:self action:@selector(choose:)];submit.frame=NSZeroRect;submit.bezelStyle=NSBezelStyleRounded;submit.accessibilityLabel=@"Open selected result";[self.inputMaterial addSubview:submit];
  NSScrollView*scroll=[[NSScrollView alloc]initWithFrame:NSZeroRect];self.composerScroll=scroll;scroll.hasVerticalScroller=YES;scroll.drawsBackground=NO;
- self.results=[[NSTableView alloc]initWithFrame:scroll.bounds];self.results.headerView=nil;self.results.rowHeight=50;self.results.intercellSpacing=NSMakeSize(0,0);self.results.backgroundColor=NSColor.clearColor;self.results.delegate=self;self.results.dataSource=self;self.results.target=self;self.results.action=@selector(choose:);NSTableColumn*col=[[NSTableColumn alloc]initWithIdentifier:@"result"];col.width=570;[self.results addTableColumn:col];scroll.documentView=self.results;[self.resultMaterial addSubview:scroll];
- self.composerHint=[NSTextField labelWithString:@"↑ ↓  Select                                             ↵  Open   ·   esc  Close"];self.composerHint.font=[NSFont systemFontOfSize:11];self.composerHint.textColor=NSColor.secondaryLabelColor;[self.resultMaterial addSubview:self.composerHint];
+ self.results=[[NSTableView alloc]initWithFrame:scroll.bounds];self.results.headerView=nil;self.results.style=NSTableViewStylePlain;self.results.rowHeight=48;self.results.intercellSpacing=NSMakeSize(0,0);self.results.backgroundColor=NSColor.clearColor;self.results.delegate=self;self.results.dataSource=self;self.results.target=self;self.results.action=@selector(choose:);NSTableColumn*col=[[NSTableColumn alloc]initWithIdentifier:@"result"];col.width=570;[self.results addTableColumn:col];scroll.documentView=self.results;[self.resultMaterial addSubview:scroll];
+ self.composerHint=[NSTextField labelWithString:@"↑ ↓  Select"];self.composerHint.font=[NSFont systemFontOfSize:11];self.composerHint.textColor=NSColor.secondaryLabelColor;[self.resultMaterial addSubview:self.composerHint];
+ self.composerActions=[NSTextField labelWithString:@"↵  Open    ·    esc  Close"];self.composerActions.font=[NSFont systemFontOfSize:11];self.composerActions.textColor=NSColor.secondaryLabelColor;self.composerActions.alignment=NSTextAlignmentRight;[self.resultMaterial addSubview:self.composerActions];
  __weak Companion*weak=self;
  self.localMonitor=[NSEvent addLocalMonitorForEventsMatchingMask:NSEventMaskKeyDown handler:^NSEvent*(NSEvent*e){Companion*c=weak;if(c.composer.visible){if(e.keyCode==53&&![(NSTextView*)c.field.currentEditor hasMarkedText]){[c cancel];return nil;}if(e.keyCode==36&&![(NSTextView*)c.field.currentEditor hasMarkedText]){[c choose:nil];return nil;}}return e;}];
  pid_t pid=getppid();for(int i=0;i<8&&pid>1;i++){NSRunningApplication*app=[NSRunningApplication runningApplicationWithProcessIdentifier:pid];if([app.bundleIdentifier isEqual:@"net.imput.helium"]){heliumPID=pid;break;}struct proc_bsdinfo info={};if(proc_pidinfo(pid,PROC_PIDTBSDINFO,0,&info,sizeof(info))!=sizeof(info))break;pid=info.pbi_ppid;}
@@ -280,7 +282,7 @@ static CGEventRef Tap(CGEventTapProxy proxy,CGEventType type,CGEventRef event,vo
  }else if([type isEqual:@"icon"]&&[m[@"epoch"]isEqual:self.epoch]&&PlicoString(m[@"url"],65536)&&PlicoString(m[@"data"],45000)){
   NSData*data=[[NSData alloc]initWithBase64EncodedString:m[@"data"] options:0];
   const unsigned char*b=(const unsigned char*)data.bytes;
-  if(data.length>=24&&memcmp(b,"\x89PNG\r\n\x1a\n",8)==0){uint32_t width=0,height=0;memcpy(&width,b+16,4);memcpy(&height,b+20,4);width=ntohl(width);height=ntohl(height);if(width&&height&&width<=64&&height<=64){NSImage*image=[[NSImage alloc]initWithData:data];if(image){[self.icons setObject:image forKey:m[@"url"]];[self.navigator setNeedsDisplay:YES];if(self.composer.visible)[self.results reloadData];}}}
+  if(data.length>=24&&memcmp(b,"\x89PNG\r\n\x1a\n",8)==0){uint32_t width=0,height=0;memcpy(&width,b+16,4);memcpy(&height,b+20,4);width=ntohl(width);height=ntohl(height);if(width&&height&&width<=64&&height<=64){NSImage*image=[[NSImage alloc]initWithData:data];if(image){[self.icons setObject:image forKey:m[@"url"]];[self.navigator setNeedsDisplay:YES];if(self.composer.visible)for(NSUInteger row=0;row<self.rows.count;row++)if([self.rows[row][@"url"]isEqual:m[@"url"]]){PlicoResultCell*cell=(PlicoResultCell*)[self.results viewAtColumn:0 row:row makeIfNecessary:NO];cell.icon=image;cell.needsDisplay=YES;}}}}
  }else if([type isEqual:@"attachments"]&&[m[@"epoch"]isEqual:self.epoch]&&[m[@"request"]isEqual:self.attachmentRequest]&&[m[@"window"]isEqual:self.snapshot[@"window"][@"id"]]){
   if(!PlicoAttachmentsValid(m))return;
   NSMutableSet*live=[NSMutableSet set];for(NSNumber*tab in m[@"attached"])if(self.tabs[tab])[live addObject:tab];
@@ -351,7 +353,7 @@ static CGEventRef Tap(CGEventTapProxy proxy,CGEventType type,CGEventRef event,vo
  if(model.mode()==Mode::kHidden&&!router->reveal_deadline()){
   unsigned ordinary=Mods(CGEventGetFlags(e));
   if(type==kCGEventLeftMouseDown||type==kCGEventRightMouseDown)return e;
-  if(type==kCGEventKeyDown&&!(ordinary&kCommand)&&!(key==48&&(ordinary&kControl)))return e;
+  if(type==kCGEventKeyDown&&!(ordinary&kCommand)&&!(key==48&&(ordinary&kControl))&&MapKey(key,0,ordinary,model.mode(),bindings).action!=Action::kStack)return e;
  }
  if(self.actionRequest&&type==kCGEventFlagsChanged)self.actionModifiers=Mods(CGEventGetFlags(e));
  BOOL pairedNow=[self paired];
@@ -394,17 +396,17 @@ static CGEventRef Tap(CGEventTapProxy proxy,CGEventType type,CGEventRef event,vo
  self.rows=grouped;[self.results reloadData];[self.results selectRowIndexes:[NSIndexSet indexSetWithIndex:0] byExtendingSelection:NO];[self layoutComposer];
 }
 -(void)layoutComposer{
- CGFloat content=0;for(NSDictionary*r in self.rows)content+=[r[@"kind"]isEqual:@"header"]?32:50;
+ CGFloat content=0;for(NSDictionary*r in self.rows)content+=[r[@"kind"]isEqual:@"header"]?30:48;
  CGFloat width=MIN(660,MAX(280,self.browserFrame.size.width-48));
- CGFloat height=MIN(480,content+128);height=MIN(height,MAX(178,self.browserFrame.size.height-48));
+ CGFloat height=MIN(480,content+130);height=MIN(height,MAX(178,self.browserFrame.size.height-48));
  CGFloat top=MIN(NSMaxY(self.browserFrame)-24,NSMidY(self.browserFrame)+90),bottom=MAX(NSMinY(self.browserFrame)+24,top-height);
  [self.composer setFrame:NSMakeRect(NSMidX(self.browserFrame)-width/2,bottom,width,height) display:YES];
- self.inputMaterial.frame=NSMakeRect(0,height-70,width,70);self.resultMaterial.frame=NSMakeRect(0,0,width,height-80);[self.inputMaterial refresh];[self.resultMaterial refresh];
- self.field.frame=NSMakeRect(52,20,width-116,30);self.field.textColor=NSColor.labelColor;
- for(NSView*v in self.inputMaterial.subviews)if([v isKindOfClass:NSButton.class])v.frame=NSMakeRect(width-58,22,40,27);
- self.composerScroll.frame=NSMakeRect(10,38,width-20,height-130);
- self.results.tableColumns.firstObject.width=width-40;
- self.composerHint.frame=NSMakeRect(22,12,width-44,18);
+ self.inputMaterial.frame=NSMakeRect(0,height-64,width,64);self.resultMaterial.frame=NSMakeRect(0,0,width,height-74);[self.inputMaterial refresh];[self.resultMaterial refresh];
+ self.field.frame=NSMakeRect(56,20,width-132,24);self.field.textColor=NSColor.labelColor;
+ for(NSView*v in self.inputMaterial.subviews)if([v isKindOfClass:NSButton.class])v.frame=NSMakeRect(width-60,18,36,28);
+ self.composerScroll.frame=NSMakeRect(12,40,width-24,height-126);
+ self.results.tableColumns.firstObject.width=self.composerScroll.contentSize.width;
+ self.composerHint.frame=NSMakeRect(24,12,100,16);self.composerActions.frame=NSMakeRect(width-214,12,190,16);
 }
 -(void)search{self.latestQuery=self.field.stringValue;[self send:@{@"type":@"search",@"query":self.latestQuery}];}
 -(void)controlTextDidChange:(NSNotification*)n{[self.searchTimer invalidate];__weak Companion*w=self;self.searchTimer=[NSTimer scheduledTimerWithTimeInterval:0.08 repeats:NO block:^(NSTimer*t){[w search];}];}
@@ -414,7 +416,7 @@ static CGEventRef Tap(CGEventTapProxy proxy,CGEventType type,CGEventRef event,vo
  if(selector==@selector(insertNewline:)){[self choose:nil];return YES;}if(selector==@selector(cancelOperation:)){[self cancel];return YES;}return NO;
 }
 -(NSInteger)numberOfRowsInTableView:(NSTableView*)table{return self.rows.count;}
--(CGFloat)tableView:(NSTableView*)table heightOfRow:(NSInteger)row{return [self.rows[row][@"kind"]isEqual:@"header"]?32:50;}
+-(CGFloat)tableView:(NSTableView*)table heightOfRow:(NSInteger)row{return [self.rows[row][@"kind"]isEqual:@"header"]?30:48;}
 -(BOOL)tableView:(NSTableView*)table shouldSelectRow:(NSInteger)row{return ![self.rows[row][@"kind"]isEqual:@"header"];}
 -(NSTableRowView*)tableView:(NSTableView*)table rowViewForRow:(NSInteger)row{return [PlicoResultRow new];}
 -(NSView*)tableView:(NSTableView*)table viewForTableColumn:(NSTableColumn*)column row:(NSInteger)row{

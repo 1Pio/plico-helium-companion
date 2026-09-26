@@ -2,10 +2,10 @@ import {test} from 'node:test';import assert from 'node:assert/strict';
 const event=()=>({listeners:[],addListener(f){this.listeners.push(f)},emit(...args){for(const f of this.listeners)f(...args)}});
 const wait=()=>new Promise(r=>setImmediate(r));
 async function settle(){for(let i=0;i<30;i++)await wait();}
-async function harness({race=false,placementRace=false,storage,initialTabs}={}){
+async function harness({race=false,placementRace=false,storage,initialTabs,initialGroups}={}){
  let tabs=[{id:1,index:0,groupId:5,active:true,windowId:7,title:'One',url:'https://example.org/1'},{id:2,index:1,groupId:5,active:false,windowId:7,title:'Two',url:'https://example.org/2'}];
  if(initialTabs)tabs=structuredClone(initialTabs);
- let groups=[{id:5,title:'plico:1'}],moveCalls=0,messages=[],placementRaced=false,moveArguments=[];
+ let groups=initialGroups||[{id:5,title:'plico:1'}],moveCalls=0,messages=[],placementRaced=false,moveArguments=[];
  const port={onMessage:event(),onDisconnect:event(),postMessage(m){messages.push(m)},disconnect(){}};
  const api={
   runtime:{id:'test',onMessage:event(),onInstalled:event(),onStartup:event(),connectNative(){return port}},
@@ -130,4 +130,9 @@ test('changed in-flight favicon suppresses stale bytes and fetches the latest so
   pending[0]([1]);await settle();assert.equal(h.messages.filter(m=>m.type==='icon').length,0);assert.equal(pending.length,2);
   pending[1]([2]);await settle();assert.equal(h.messages.filter(m=>m.type==='icon').at(-1).data,btoa(String.fromCharCode(2)));
  }finally{globalThis.fetch=original;}
+});
+
+test('external native group no longer blocks unrelated committed organization',async()=>{
+ const h=await harness({initialGroups:[{id:5,title:'Research',color:'green',collapsed:false}],initialTabs:[{id:1,index:0,groupId:-1,active:true,windowId:7},{id:2,index:1,groupId:-1,active:false,windowId:7},{id:3,index:2,groupId:5,active:false,windowId:7}]});const s=h.messages.find(m=>m.type==='snapshot');assert.deepEqual(s.stacks[0],[3]);
+ h.port.onMessage.emit({v:1,epoch:s.epoch,request:'native-group',window:7,revision:s.revision,type:'commit',activate:1,loose:[2,1],stacks:s.stacks});await settle();assert(h.messages.some(m=>m.type==='ack'&&m.request==='native-group'));assert.deepEqual(h.tabs.map(t=>t.id),[2,1,3]);const groups=await h.api.tabGroups.query();assert(groups.some(g=>g.id!==5&&g.title==='Research'&&g.color==='green'&&g.collapsed===false));
 });
