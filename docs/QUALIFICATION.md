@@ -1,6 +1,6 @@
 # Qualification
 
-Plico 0.4.3 is a review candidate. Public publication is pending review of the README, presentation media and release package.
+Plico 0.4.4 is a review candidate. Public publication is pending review of the README, presentation media and release package.
 
 The candidate was exercised on **macOS 26.6, Apple Silicon, stock Helium 0.17.2.2**. This is a qualification statement for that combination, not a promise of broad Mac compatibility.
 
@@ -33,6 +33,12 @@ The approved ambient-shadow refinement adds a low-opacity elliptical gradient be
 The signed experiment passed the isolated dark/light surface fixture and pointer/scroll checks. An initial pointer attempt found no eligible panel and refused to click; a settled rerun passed. Scoped recordings show its appearance and dismissal over fixture content. Visual review sampled both three-second recordings and inspected consecutive frames around the light-theme reveal. This is synthetic-input evidence, not physical acceptance or every-frame coverage of both recordings. Small-window runtime coverage remains subject to the tiling limitation above.
 
 The final signed 0.4.4 candidate passed the source/native suite, 49 JavaScript tests, ten disposable-home install tests, four update/rollback tests and the isolated native pointer/held-scroll suite. Personal installation was verified against frozen receipts; Helium displayed extension version 0.4.4 and Connected. The prior 0.4.3 installation was retained for rollback.
+
+## README media refresh (0.4.4)
+
+Four new recordings use the unchanged shipping companion in an isolated public-page profile: arrow-only selection, Shift-arrow reordering, six background reference links followed by numbered sorting, and open-tab search. Browser assertions checked the recorded selection and group commits. Navigation keys use scoped native synthetic input; background links use browser-injected Command-clicks. No gesture is sped up, and no product interface is reconstructed.
+
+All four final MP4s played to completion in Helium. Review covered screenshots, sampled motion, consecutive frames around Command reveal/release, caption/keycap timing, complete composer framing and export metadata. An encoded-frame check matched 8,671 keycap states against event logs away from transition boundaries. GIF timing stays within one preview frame of its MP4. The README preview was checked at desktop and phone widths with every image loaded and one shortcut table; this local preview does not establish identical rendering on every GitHub client.
 
 ## Resource sample
 

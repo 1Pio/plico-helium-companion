@@ -14,6 +14,7 @@ from PIL import Image, ImageDraw, ImageFont
 
 KEYS = [
     (55, "⌘"),
+    (-1, "click"),
     (56, "⇧"),
     (59, "⌃"),
     (4, "H"),
@@ -44,6 +45,9 @@ def main():
     p.add_argument("--caption", required=True)
     p.add_argument(
         "--crop", help="Fixed centered detail crop WIDTHxHEIGHT; never changes timing"
+    )
+    p.add_argument(
+        "--crop-y", type=int, help="Fixed top offset for the crop; defaults to centered"
     )
     args = p.parse_args()
     if args.output.exists():
@@ -93,25 +97,36 @@ def main():
             and 300 <= source_height <= video["height"]
         ):
             raise SystemExit("Invalid fixed crop")
-        crop_filter = f"crop={source_width}:{source_height}:(iw-ow)/2:(ih-oh)/2,"
+        if (
+            args.crop_y is not None
+            and not 0 <= args.crop_y <= video["height"] - source_height
+        ):
+            raise SystemExit("Crop offset falls outside source")
+        y = str(args.crop_y) if args.crop_y is not None else "(ih-oh)/2"
+        crop_filter = f"crop={source_width}:{source_height}:(iw-ow)/2:{y},"
+    elif args.crop_y is not None:
+        raise SystemExit("Crop offset requires --crop")
     scale = min(1, 1920 / source_width, 972 / source_height)
     width, height = (
         int(source_width * scale) // 2 * 2,
         int(source_height * scale) // 2 * 2,
     )
-    changes = [(0.0, frozenset())]
+    changes = [(0.0, frozenset(), args.caption)]
+    caption = args.caption
     pressed = set()
     for e in events:
-        if e.get("event") != "key":
+        if e.get("event") not in ("key", "chapter"):
             continue
         t = e["uptime"] - start["pts"]
         if not 0 <= t <= duration:
             raise SystemExit("Key event outside recording interval")
-        if e["down"]:
+        if e["event"] == "chapter":
+            caption = e["text"]
+        elif e["down"]:
             pressed.add(e["key"])
         else:
             pressed.discard(e["key"])
-        changes.append((round(t * 60) / 60, frozenset(pressed)))
+        changes.append((round(t * 60) / 60, frozenset(pressed), caption))
     if pressed:
         raise SystemExit("Recording ends with held test keys")
     # Only the keys actually demonstrated get permanent dim labels. The bright
@@ -120,38 +135,40 @@ def main():
     keys = [(code, label) for code, label in KEYS if code in used]
     folder = args.output.parent / (args.output.stem + "-keyframes")
     folder.mkdir(parents=True, exist_ok=False)
-    font = ImageFont.truetype(FONT, 23)
-    small = ImageFont.truetype(FONT, 16)
+    cap_scale = width / 1100
+    cap_width, cap_gap = round(48 * cap_scale), round(8 * cap_scale)
+    font = ImageFont.truetype(FONT, round(23 * cap_scale))
+    small = ImageFont.truetype(FONT, round(16 * cap_scale))
     lines = []
-    for i, (t, state) in enumerate(changes):
+    for i, (t, state, caption) in enumerate(changes):
         next_t = changes[i + 1][0] if i + 1 < len(changes) else duration
         if next_t <= t:
             continue
         image = Image.new("RGBA", (width, 108), (19, 21, 25, 255))
         draw = ImageDraw.Draw(image)
         draw.line([(28, 0), (width - 28, 0)], fill=(58, 61, 67), width=1)
-        draw.text((30, 53), args.caption, font=small, anchor="lm", fill=(207, 211, 219))
-        total = len(keys) * 48 + max(0, len(keys) - 1) * 8
+        draw.text((30, 53), caption, font=small, anchor="lm", fill=(207, 211, 219))
+        total = len(keys) * cap_width + max(0, len(keys) - 1) * cap_gap
         left = width - total - 30
-        if draw.textlength(args.caption, font=small) > left - 60:
+        if draw.textlength(caption, font=small) > left - 60:
             raise SystemExit(
                 "Caption overlaps keys; shorten it or use a wider composition"
             )
         for j, (code, label) in enumerate(keys):
-            x = left + j * 56
+            x = left + j * (cap_width + cap_gap)
             active = code in state
             draw.rounded_rectangle(
-                (x, 30, x + 48, 78),
-                radius=11,
+                (x, 54 - cap_width / 2, x + cap_width, 54 + cap_width / 2),
+                radius=round(11 * cap_scale),
                 fill=(227, 230, 236) if active else (34, 37, 44),
                 outline=(249, 250, 252) if active else (69, 74, 84),
                 width=1,
             )
             key_label = {48: "tab", 36: "enter"}.get(code, label)
             draw.text(
-                (x + 24, 54),
+                (x + cap_width / 2, 54),
                 key_label,
-                font=small if code in (36, 48, 53) else font,
+                font=small if code in (-1, 36, 48, 53) else font,
                 anchor="mm",
                 fill=(22, 25, 31) if active else (147, 155, 170),
             )

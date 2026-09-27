@@ -1,45 +1,45 @@
 # Demos
 
-These animated previews play directly in GitHub's Markdown view. The MP4 links download the full-quality, 60 fps recordings.
+Start with the arrow-only introduction, then try the faster organization examples. The GIFs play in GitHub; the linked MP4s show the same interactions at 60 fps.
 
 ## Switch tabs
 
-Hold Command, select another tab, then release to switch. Escape cancels a selection. Control+Tab selects recently used tabs.
+Hold Command and use only the arrows: left/right across loose tabs and stacks, up/down inside a stack. The page stays put until Command is released.
 
-![Selecting tabs without changing the page, switching on release, and canceling](navigation.gif)
+![Arrow-only navigation across loose tabs and inside a stack](navigation.gif)
 
-[Download MP4 · 540 KB](navigation.mp4?raw=true)
+[Watch or download MP4 · 11.0s · 0.40 MB](navigation.mp4?raw=true)
 
 ## Organize tabs
 
-Move within a stack, return to its last visited tab, and sort ungrouped tabs into a stack without following them.
+Add Shift to the same arrows. Reorder a loose tab, put it into a stack, change its position, then move it between stacks. Release Command to apply each set of moves.
 
-![Vertical stack navigation, remembered tabs and sorting with Command+Shift+number](stacks.gif)
+![Moving and reordering tabs with Command, Shift and arrows](stacks.gif)
 
-[Download MP4 · 1.1 MB](stacks.mp4?raw=true)
+[Watch or download MP4 · 9.5s · 0.33 MB](stacks.mp4?raw=true)
+
+## Collect and sort
+
+Command-click six reference links to open them in the background, then sort them with Command+Shift+number. The selection stays in the source list, so the next tab is ready to sort. State hooks go to stack 1, effect hooks to stack 2, and refs to stack 3.
+
+![Collecting six tabs and quickly sorting them into three stacks](busy.gif)
+
+[Watch or download MP4 · 8.1s · 0.49 MB](busy.mp4?raw=true)
 
 ## Search tabs
 
-Press Command+T, type a query and select an already-open tab.
+Command+T searches open tabs as well as history, bookmarks and the web. Select an existing CSS tab and press Enter to switch to it.
 
-![Searching for CSS and switching to an existing tab](composer.gif)
+![Searching for CSS and switching to an already-open tab](composer.gif)
 
-[Download MP4 · 472 KB](composer.mp4?raw=true)
-
-## Navigate a larger stack
-
-Scroll through a twelve-tab stack, jump between stacks, and cancel a selection with Escape.
-
-![A twelve-tab stack scrolling to keep the selection visible](busy.gif)
-
-[Download MP4 · 746 KB](busy.mp4?raw=true)
+[Watch or download MP4 · 5.1s · 0.22 MB](composer.mp4?raw=true)
 
 ## Recording details
 
-Recorded in stock Helium with the shipping Plico extension, an isolated profile and public documentation pages. Input is synthetic; the key overlays follow actual shortcut down/up timestamps. Text entry appears in the real field. The recordings are silent and contain no personal browsing.
+Recorded with Plico 0.4.4 in stock Helium, using the shipping extension and a separate demo profile. Pages and favicons are real. The keycaps follow timestamps from the predefined native key-down/key-up events and browser-injected Command-clicks, including held modifiers. Captions explain the current step; neither the product interface nor its transitions are reconstructed. No interaction is sped up.
 
-The footer is added for the demos. GIFs use 20 fps; MP4s retain 60 fps. Unused tails are trimmed, and the first clip uses a fixed detail crop. No interactions are sped up or fabricated.
+The recordings are silent. They include only the isolated browser and its companion, with no personal browsing or unrelated apps. Fixed crops bring navigation closer; the caption/keycap footer is added for the demos. GIFs are compact previews; MP4s retain 60 fps. These are synthetic-input recordings, not physical-keyboard acceptance tests.
 
-Pages and favicons: [MDN Web Docs](https://developer.mozilla.org/), [web.dev](https://web.dev/), [React](https://react.dev/), [Helium](https://helium.computer/) and [Helium on GitHub](https://github.com/imputnet/helium). Their appearance does not imply endorsement.
+Pages and favicons: [Bear](https://bearblog.dev/), [Wikipedia](https://www.wikipedia.org/), [MDN Web Docs](https://developer.mozilla.org/), [web.dev](https://web.dev/), [React](https://react.dev/) and [Helium on GitHub](https://github.com/imputnet/helium). Their appearance does not imply endorsement.
 
 [Runtime tests and limitations](../QUALIFICATION.md)

@@ -14,41 +14,54 @@ Keyboard tab switching and tab groups for [Helium](https://helium.computer/) on 
 
 The highlight marks your selection. The small dot marks the page currently open.
 
-![Tab selection, switching on Command release, cancellation and recent-tab navigation](docs/media/navigation.gif)
-
-| Shortcut        | Action                                                                              |
-| --------------- | ----------------------------------------------------------------------------------- |
-| **⌘B**          | Keep the bar open. Repeat or tap ⌘ to switch; click a tab to switch with the mouse. |
-| **Control+Tab** | Select recently used tabs. Add Shift to reverse; release Control to switch.         |
-| **⌘W** / **⌘M** | Close / mute the selection immediately. Esc does not undo these actions.            |
+![Command and arrow keys select loose tabs, enter a stack and switch on release](docs/media/navigation.gif)
 
 ## Organize tabs into stacks
 
 Stacks are numbered Helium tab groups. New, ungrouped tabs sit on the left; stacks sit on the right.
 
-| Shortcut                  | Action                                                                                      |
-| ------------------------- | ------------------------------------------------------------------------------------------- |
-| **⌘⇧ + arrows / H/J/K/L** | Move the selected tab left/right between tabs and stacks, or up/down within a stack.        |
-| **⌘⇧1–9**                 | Move the tab into that stack; select the next tab in the original list to continue sorting. |
-| **⌘1–9**                  | Select a stack's last visited tab.                                                          |
+Hold **⌘⇧** and use the arrows to move the selected tab. Use **⌘⇧1–9** to send it directly to a stack and keep selecting from the original list, ready to sort the next tab.
 
 Release ⌘ to apply the moves and switch to the selection; Esc cancels. Up to ten stacks keep fixed numbers. Empty stacks are hidden. Stack 10 needs a custom shortcut; **⌘0** remains zoom reset.
 
-[Stack navigation and sorting demo](docs/media/README.md#organize-tabs) · [Twelve-tab stack demo](docs/media/README.md#navigate-a-larger-stack)
+![Moving tabs between loose tabs and stacks with Command, Shift and the arrow keys](docs/media/stacks.gif)
+
+[Add six tabs, then sort them into three stacks](docs/media/README.md#collect-and-sort)
 
 ## Search tabs, history, bookmarks and the web
 
 **⌘T** opens search. Type, choose a result with ↑/↓, then press Enter. Open-tab results switch tabs; URLs and web searches open a new tab. Searches use Helium's default engine. Esc or clicking outside cancels without creating a tab.
 
-![Search field with separate open-tab, history and bookmark results](docs/media/composer.png)
+![Search field with separate open-tab and recent-history results](docs/media/composer.png)
 
 **⌘;** edits the current URL. **⌘⇧C** copies it. [Search demo](docs/media/README.md#search-tabs)
 
-[All controls, settings and tab indicators](docs/USAGE.md) · [All four demos](docs/media/README.md)
+## Keyboard reference
+
+These are the default bindings. Change shortcuts and the reveal delay in the extension settings.
+
+| Shortcut                                | Action                                                                                                             |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| Hold **⌘**                              | Show the navigator after 150 ms. Navigation keys show it immediately.                                              |
+| **⌘← / →** or **⌘H / L**                | Select a loose tab or stack; wrap at either end.                                                                   |
+| **⌘↑ / ↓** or **⌘K / J**                | Select a tab inside the current stack; wrap at either end.                                                         |
+| Release **⌘**                           | Apply pending moves and switch to the selected tab.                                                                |
+| **Esc**                                 | Cancel selection and pending moves.                                                                                |
+| **⌘⇧ + arrows / H/J/K/L**               | Reorder the selected tab or move it into or out of a stack.                                                        |
+| **⌘⇧1–9**                               | Send the selection to that stack; select the next tab in its original list.                                        |
+| **⌘1–9**                                | Select that stack's last visited tab.                                                                              |
+| **⌘B**                                  | Keep the navigator open. Repeat or tap ⌘ to commit; click a tab to switch.                                         |
+| **Control+Tab** / **Control+Shift+Tab** | Select recent tabs forward/backward; release Control to switch.                                                    |
+| **⌘W** / **⌘M**                         | Close / mute the selected tab immediately. Esc does not undo these actions.                                        |
+| **⌘T**                                  | Search open tabs, history, bookmarks or the web; ↑/↓ selects, Enter opens.                                         |
+| **⌘;** / **⌘⇧C**                        | Edit / copy the current tab's URL.                                                                                 |
+| **⌘Backspace**                          | Go back. With no history, an eligible child tab returns to its opener and closes. Text fields keep normal editing. |
+
+[Mouse controls, settings and tab indicators](docs/USAGE.md) · [All four demos](docs/media/README.md)
 
 ## Install
 
-**0.4.3 is a private review candidate.** Installation builds the companion locally; there is no notarized app download yet.
+**0.4.4 is a private review candidate.** Installation builds the companion locally; there is no notarized app download yet.
 
 Requires Helium and Apple's Command Line Tools. Tested on **macOS 26.6, Apple Silicon, Helium 0.17.2.2**.
 
