@@ -628,7 +628,7 @@ static CGEventRef Tap(CGEventTapProxy proxy, CGEventType type, CGEventRef event,
     [self send:@{@"type" : @"attachments"}];
   }
   CGFloat width = MAX(240, MIN(self.browserFrame.size.width - 48, 1400)),
-          height = MAX(100, MIN(self.browserFrame.size.height - 80, 620));
+          height = MAX(100, MIN(self.browserFrame.size.height - 48, 1100));
   [self.panel setFrame:NSMakeRect(NSMidX(self.browserFrame) - width / 2,
                                   NSMidY(self.browserFrame) - height / 2, width, height)
                display:NO];

@@ -20,7 +20,7 @@
   self.stackScrollRect = NSZeroRect;
   [self removeAllToolTips];
   const CGFloat h = 64, y = self.bounds.size.height / 2 - h / 2;
-  c.barMaterial.frame = NSMakeRect(0, y, self.bounds.size.width, h);
+  c.barMaterial.layer.cornerRadius = h / 2;
   [c.barMaterial refresh];
   c.stackMaterial.hidden = YES;
   const auto& layout = c->model.visible();
@@ -52,9 +52,13 @@
     }
     total += i.width + 8;
   }
-  CGFloat barWidth = MIN(self.bounds.size.width, MAX(120, total + 16));
-  c.barMaterial.frame = NSMakeRect((self.bounds.size.width - barWidth) / 2, y, barWidth, h);
-  CGFloat visible = self.bounds.size.width - 24;
+  if (!items.empty()) total -= 8;  // No trailing inter-item gap.
+  const CGFloat endPadding = 12;
+  CGFloat barWidth = MIN(self.bounds.size.width - 16, MAX(120, total + 2 * endPadding));
+  NSRect bar = NSMakeRect((self.bounds.size.width - barWidth) / 2, y, barWidth, h);
+  c.barMaterial.frame = bar;
+  NSBezierPath* barClip = [NSBezierPath bezierPathWithRoundedRect:bar xRadius:h / 2 yRadius:h / 2];
+  CGFloat visible = barWidth - 2 * endPadding;
   self.horizontalOffset =
       total <= visible ? 0 : MAX(0, MIN(self.horizontalOffset, total - visible));
   BOOL reveal = ![self.revealedTab isEqual:selected ? @(*selected) : nil] ||
@@ -63,18 +67,18 @@
   self.revealedX = selectedX;
   self.revealedWidth = selectedWidth;
   if (total > visible && reveal) {
-    CGFloat at = 12 + selectedX - self.horizontalOffset;
-    if (at < 12)
+    CGFloat at = selectedX - self.horizontalOffset;
+    if (at < 0)
       self.horizontalOffset = selectedX;
-    else if (at + selectedWidth > self.bounds.size.width - 12)
+    else if (at + selectedWidth > visible)
       self.horizontalOffset = MIN(total - visible, selectedX + selectedWidth - visible);
   }
-  CGFloat x =
-      total < visible ? (self.bounds.size.width - total + 8) / 2 : 12 - self.horizontalOffset;
+  CGFloat x = total < visible ? (self.bounds.size.width - total) / 2
+                              : NSMinX(bar) + endPadding - self.horizontalOffset;
   NSColor *ink = PlicoInk(self, NO), *secondary = PlicoInk(self, YES);
   auto highlight = [&](NSRect r) {
     [[NSColor colorWithWhite:PlicoDark(self) ? 1 : 0 alpha:PlicoDark(self) ? 0.13 : 0.085] setFill];
-    [[NSBezierPath bezierPathWithRoundedRect:r xRadius:17 yRadius:17] fill];
+    [[NSBezierPath bezierPathWithRoundedRect:r xRadius:24 yRadius:24] fill];
   };
   auto status = [&](TabId id) {
     NSMutableArray* parts = [NSMutableArray array];
@@ -85,6 +89,7 @@
       [parts addObject:@"Playing audio"];
     return [parts componentsJoinedByString:@" · "];
   };
+  BOOL inStack = NO;
   auto tab = [&](TabId id, NSRect r, BOOL expanded, BOOL chosen) {
     NSDictionary* t = c.tabs[@(id)];
     if (chosen) highlight(r);
@@ -131,6 +136,7 @@
     NSString* tip = [NSString stringWithFormat:@"%@%@%@", t[@"title"] ?: @"",
                                                status(id).length ? @" · " : @"", status(id)];
     if (c->model.active() == id) tip = [tip stringByAppendingString:@" · Current page"];
+    if (!inStack) r = NSIntersectionRect(r, bar);
     [self addToolTipRect:r owner:tip userData:nullptr];
     [self.hits addObject:@{@"rect" : [NSValue valueWithRect:r], @"id" : @(id), @"slot" : @(-1)}];
   };
@@ -141,7 +147,10 @@
             ? selected == i.id
             : (selected && std::find(layout.stacks[i.slot].begin(), layout.stacks[i.slot].end(),
                                      *selected) != layout.stacks[i.slot].end());
-    NSRect rect = NSMakeRect(x, y + 5, i.width, h - 10);
+    NSRect rect = NSMakeRect(x, y + 8, i.width, h - 16);
+    BOOL expandedStack = i.slot >= 0 && chosen;
+    [NSGraphicsContext saveGraphicsState];
+    if (!expandedStack) [barClip addClip];
     if (i.slot >= 0 && !separator && !layout.loose.empty()) {
       [[secondary colorWithAlphaComponent:0.25] setStroke];
       NSBezierPath* p = [NSBezierPath bezierPath];
@@ -153,6 +162,7 @@
     if (i.slot < 0)
       tab(i.id, rect, chosen, chosen);
     else if (chosen) {
+      inStack = YES;
       const auto& tabs = layout.stacks[i.slot];
       NSInteger index = std::find(tabs.begin(), tabs.end(), *selected) - tabs.begin();
       CGFloat left = MAX(12, MIN(x, self.bounds.size.width - i.width - 12)), rowHeight = 54;
@@ -177,6 +187,26 @@
       for (NSInteger row = index - before; row <= index + after; row++)
         tab(tabs[row], NSMakeRect(left, y + 5 + (row - index) * rowHeight, i.width, rowHeight), YES,
             row == index);
+      // Only shade edges with hidden members. Keep the header and hit testing unchanged.
+      [NSGraphicsContext saveGraphicsState];
+      [[NSBezierPath bezierPathWithRoundedRect:surface xRadius:24 yRadius:24] addClip];
+      NSColor* shade = [NSColor colorWithWhite:0 alpha:PlicoDark(self) ? 0.26 : 0.15];
+      NSGradient* fade = [[NSGradient alloc] initWithStartingColor:shade
+                                                    endingColor:NSColor.clearColor];
+      if (index > before) {
+        CGFloat edge = top + 34;
+        NSRectClip(NSMakeRect(left - 4, edge, i.width + 8, 24));
+        [fade drawFromPoint:NSMakePoint(left, edge) toPoint:NSMakePoint(left, edge + 24) options:0];
+      }
+      [NSGraphicsContext restoreGraphicsState];
+      if (index + after + 1 < (NSInteger)tabs.size()) {
+        [NSGraphicsContext saveGraphicsState];
+        [[NSBezierPath bezierPathWithRoundedRect:surface xRadius:24 yRadius:24] addClip];
+        NSRectClip(NSMakeRect(left - 4, bottom - 24, i.width + 8, 24));
+        [fade drawFromPoint:NSMakePoint(left, bottom) toPoint:NSMakePoint(left, bottom - 24) options:0];
+        [NSGraphicsContext restoreGraphicsState];
+      }
+      inStack = NO;
     } else {
       highlight(rect);
       PlicoText([NSString stringWithFormat:@"%d", i.slot + 1], NSMakeRect(x + 14, y + 24, 30, 22),
@@ -189,12 +219,13 @@
           if (previews.size() == 2) break;
         }
       for (size_t n = 0; n < previews.size(); n++) {
-        tab(previews[n], NSMakeRect(x + 45 + n * 45, y + 5, 44, h - 10), NO, NO);
+        tab(previews[n], NSMakeRect(x + 45 + n * 45, y + 8, 44, h - 16), NO, NO);
         [self.hits removeLastObject];
       }
       [self.hits
-          addObject:@{@"rect" : [NSValue valueWithRect:rect], @"id" : @0, @"slot" : @(i.slot)}];
+          addObject:@{@"rect" : [NSValue valueWithRect:NSIntersectionRect(rect, bar)], @"id" : @0, @"slot" : @(i.slot)}];
     }
+    [NSGraphicsContext restoreGraphicsState];
     x += i.width + 8;
   }
   [self setAccessibilityElement:YES];

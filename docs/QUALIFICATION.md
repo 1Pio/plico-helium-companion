@@ -1,6 +1,6 @@
 # Qualification
 
-Plico 0.4.2 is a review candidate. Public publication is pending review of the README, presentation media and release package.
+Plico 0.4.3 is a review candidate. Public publication is pending review of the README, presentation media and release package.
 
 The candidate was exercised on **macOS 26.6, Apple Silicon, stock Helium 0.17.2.2**. This is a qualification statement for that combination, not a promise of broad Mac compatibility.
 
@@ -21,6 +21,10 @@ The 0.4.1 application-local wake event did not resolve the reported physical-key
 Physical hold behavior was subsequently confirmed by the user after correcting deferred modifier delivery, without changing the 0.4.1 app. Version 0.4.2 removes the unsupported wake event and its implementation-specific test. Plico retains its single reveal timer; no polling or extra input injection is introduced. Keyboard-remapper compatibility and tap timing are described in installation troubleshooting.
 
 The signed 0.4.2 cleanup passed the source/native checks, 49 JavaScript tests, ten disposable-home installation tests and four update/rollback tests. The isolated input/loading-page suite passed, including hold reveal, release-to-commit, cancellation and editing passthrough. A scoped recording showed the panel appearing during a bare synthetic Command hold and disappearing on release without the wake event. The earlier physical confirmation used 0.4.1 with corrected modifier delivery; it is not a separate physical acceptance test of the cleanup binary. Earlier broad qualification above applies to the 0.4.0/0.4.1 candidates.
+
+## Navigation surface refinement (0.4.3)
+
+The signed build passed existing source/native checks. An isolated 30-tab stack was captured in dark and light themes at its first, middle and last candidates, alongside a two-tab stack and loose-tab selection. In the tested 950-point browser window, eight rows fit from the first candidate and fourteen around a middle candidate. Only overflowing edges receive fades; a fitting stack has none. Panel bounds stayed inside the paired browser and previewing left its active tab unchanged. Native pointer checks passed for loose-tab selection, blank-space cancellation, vertical scrolling in held and toggled modes, and horizontal overflow scrolling. One foreground-interrupted attempt stopped safely; the uninterrupted rerun passed. A requested smaller window was overridden by the tiling environment, so that run is not small-window runtime proof.
 
 ## Resource sample
 

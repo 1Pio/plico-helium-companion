@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.3 (local review candidate)
+
+- Round the navigator ends, balance end padding and clip horizontal overflow to the bar.
+- Expand stack capacity to available window height and shade only the edges with hidden tabs.
+
 ## 0.4.2 (release candidate)
 
 - Remove the speculative AppKit wake event and its event-cycle test. Physical hold detection was blocked by deferred modifier events upstream of Plico; the wake event did not fix it.

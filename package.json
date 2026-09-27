@@ -1,6 +1,6 @@
 {
   "name": "plico-helium-companion",
-  "version": "0.4.2",
+  "version": "0.4.3",
   "private": true,
   "description": "Native keyboard navigation for stock Helium on macOS",
   "license": "GPL-3.0-only",
