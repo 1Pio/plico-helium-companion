@@ -65,7 +65,7 @@ These are the default bindings. Change shortcuts and the reveal delay in the ext
 
 ## Install
 
-**0.4.4 is a private review candidate.** Installation builds the companion locally; there is no notarized app download yet.
+**Current version: 0.4.4.** Installation builds the companion locally; there is no notarized app download yet.
 
 Requires Helium and Apple's Command Line Tools. Tested on **macOS 26.6, Apple Silicon, Helium 0.17.2.2**.
 

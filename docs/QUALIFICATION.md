@@ -1,6 +1,6 @@
 # Qualification
 
-Plico 0.4.4 is a review candidate. Public publication is pending review of the README, presentation media and release package.
+Plico 0.4.4 is distributed as source for a local build. The README and demonstration media were reviewed before publication.
 
 The candidate was exercised on **macOS 26.6, Apple Silicon, stock Helium 0.17.2.2**. This is a qualification statement for that combination, not a promise of broad Mac compatibility.
 
@@ -54,4 +54,4 @@ In a controlled documentation-tab demo, the companion process consumed about 0.0
 - A clean source/home fixture on this existing Mac is not proof of fresh-machine Gatekeeper or Accessibility onboarding. Existing automation trust affected the attempted permission-denial probe. No TCC changes were made to bypass or manufacture that boundary.
 - The source build is not notarized. Changed ad-hoc builds may require removing/re-adding their Accessibility entry. No private signing identity is distributed.
 
-Final archive download and anonymous GitHub visibility checks can happen only after publication is approved. The private review package does not imply those gates have passed.
+Repository publication does not establish fresh-machine installation or broader compatibility. Those limits remain as listed above.

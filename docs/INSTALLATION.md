@@ -6,7 +6,7 @@ Plico's public package builds a small native app locally. It is not signed with 
 
 - Install stock [Helium](https://helium.computer/) in Applications and open a normal profile at least once.
 - Install Apple's Command Line Tools with `xcode-select --install`. Finish that installer before continuing. It provides Clang and Python 3.
-- Extract the versioned source release into a writable folder. Paths with spaces work.
+- Clone the public repository or extract its source ZIP into a writable folder. Paths with spaces work.
 - The public build targets your current Mac architecture. The release qualification describes the architecture/OS actually tested; deployment metadata alone is not a compatibility guarantee.
 
 From Terminal, change to the extracted folder, then run:
