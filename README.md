@@ -26,15 +26,19 @@ Release ⌘ to apply the moves and switch to the selection; Esc cancels. Up to t
 
 ![Moving tabs between loose tabs and stacks with Command, Shift and the arrow keys](docs/media/stacks.gif)
 
-[Add six tabs, then sort them into three stacks](docs/media/README.md#collect-and-sort)
+### Collect and sort
+
+![Collecting six tabs and quickly sorting them into three stacks](docs/media/busy.gif)
+
+[Watch MP4](docs/media/busy.mp4?raw=true)
 
 ## Search tabs, history, bookmarks and the web
 
 **⌘T** opens search. Type, choose a result with ↑/↓, then press Enter. Open-tab results switch tabs; URLs and web searches open a new tab. Searches use Helium's default engine. Esc or clicking outside cancels without creating a tab.
 
-![Search field with separate open-tab and recent-history results](docs/media/composer.png)
+![Searching for CSS and switching to an already-open tab](docs/media/composer.gif)
 
-**⌘;** edits the current URL. **⌘⇧C** copies it. [Search demo](docs/media/README.md#search-tabs)
+**⌘;** edits the current URL. **⌘⇧C** copies it. [Watch MP4](docs/media/composer.mp4?raw=true)
 
 ## Keyboard reference
 
