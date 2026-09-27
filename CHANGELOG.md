@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.4 (release candidate)
+
+- Add the approved, faint ambient shade beneath the navigator, contained within the browser window. It appears with the bar without animation and does not intercept input.
+
 ## 0.4.3 (local review candidate)
 
 - Round the navigator ends, balance end padding and clip horizontal overflow to the bar.

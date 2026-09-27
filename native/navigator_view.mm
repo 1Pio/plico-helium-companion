@@ -1,6 +1,6 @@
 #include <algorithm>
 #import "companion.h"
-// Local experiment: a feathered ambient pool, drawn behind the native material.
+// A feathered ambient shade, drawn behind the native material.
 // It has no independent window, event handling, timers or implicit animations.
 @implementation PlicoAmbientView
 - (BOOL)isFlipped {

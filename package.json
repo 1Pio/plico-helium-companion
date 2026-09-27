@@ -1,14 +1,18 @@
 {
   "name": "plico-helium-companion",
-  "version": "0.4.3",
+  "version": "0.4.4",
   "private": true,
   "description": "Native keyboard navigation for stock Helium on macOS",
   "license": "GPL-3.0-only",
-  "engines": { "node": ">=22" },
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "test": "node --test tests/*.test.mjs",
     "format": "prettier --write extension scripts/*.mjs scripts/media/*.mjs tests/*.mjs '*.md' docs/*.md docs/media/*.md",
     "format:check": "prettier --check extension scripts/*.mjs scripts/media/*.mjs tests/*.mjs '*.md' docs/*.md docs/media/*.md"
   },
-  "devDependencies": { "prettier": "3.9.9" }
+  "devDependencies": {
+    "prettier": "3.9.9"
+  }
 }
