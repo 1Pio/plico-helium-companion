@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.1 (release candidate)
+
+- Complete AppKit's window-update cycle when the Command-hold timer reveals the navigator, without waiting for another keyboard or mouse event.
+- Add a native event-loop regression for bare hold, cancellation and loss of browser pairing.
+
 ## 0.4.0 (release candidate)
 
 - Separate native application/input handling, navigator rendering, composer and shared presentation modules.

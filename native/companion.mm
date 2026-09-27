@@ -690,6 +690,16 @@ static CGEventRef Tap(CGEventTapProxy proxy, CGEventType type, CGEventRef event,
                           if ([c paired]) {
                             c->router->RevealIfDue(Now());
                             [c apply:GestureResult{}];
+                            // A run-loop timer does not finish NSApplication's event cycle.
+                            // Wake our own event queue once so AppKit presents the panel
+                            // even when Helium receives no further keyboard/mouse input.
+                            if (c->model.mode() == Mode::kCommandHold)
+                              [NSApp postEvent:[NSEvent
+                                  otherEventWithType:NSEventTypeApplicationDefined
+                                  location:NSZeroPoint modifierFlags:0
+                                  timestamp:NSProcessInfo.processInfo.systemUptime
+                                  windowNumber:0 context:nil subtype:0 data1:0 data2:0]
+                                  atStart:NO];
                           }
                         }];
     [[NSRunLoop mainRunLoop] addTimer:self.revealTimer forMode:NSRunLoopCommonModes];

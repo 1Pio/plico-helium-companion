@@ -1,6 +1,6 @@
 # Qualification
 
-Plico 0.4.0 is a review candidate. Public publication is pending review of the README, presentation media and release package.
+Plico 0.4.1 is a review candidate. Public publication is pending review of the README, presentation media and release package.
 
 The candidate was exercised on **macOS 26.6, Apple Silicon, stock Helium 0.17.2.2**. This is a qualification statement for that combination, not a promise of broad Mac compatibility.
 
@@ -13,6 +13,12 @@ The candidate was exercised on **macOS 26.6, Apple Silicon, stock Helium 0.17.2.
 - **Media:** actual shipping extension and companion in a separate public-page demo profile. Key overlays derive from predefined native input events and their monotonic timestamps. No personal browsing, desktop, unrelated applications or audio is included. The footage uses synthetic input, not a claim of physical keyboard acceptance.
 
 The same navigation behavior had earlier physical user confirmation. That confirmation is not a fresh physical acceptance test of this refactored candidate.
+
+## Command-hold presentation fix (0.4.1)
+
+The physical-key report on 0.4.0 showed timely modifier delivery, timer execution and drawing, but the navigator still waited for further input to become visible. A native regression using the real `NSApplication` event loop reproduced the missing window-update cycle without any keyboard or mouse events. It fails on the previous implementation and passes with one application-local wake event after timer reveal. Cancellation and loss of browser pairing also pass.
+
+The signed 0.4.1 candidate passed the isolated input/loading-page suite, and a screen recording verified visible reveal during a bare synthetic Command hold and dismissal on release. This supplements the event-loop regression; it is not a fresh physical-key acceptance result. No idle polling, global input injection or permanent App Nap exemption was added. Installation and retained rollback passed disposable-home checks.
 
 ## Resource sample
 
