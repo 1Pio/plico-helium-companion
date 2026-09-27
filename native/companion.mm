@@ -120,6 +120,8 @@ static CGEventRef Tap(CGEventTapProxy proxy, CGEventType type, CGEventRef event,
       NSWindowCollectionBehaviorMoveToActiveSpace | NSWindowCollectionBehaviorFullScreenAuxiliary;
   NSView* root = [[NSView alloc] initWithFrame:self.panel.contentView.bounds];
   self.panel.contentView = root;
+  self.barAmbient = [PlicoAmbientView new];
+  [root addSubview:self.barAmbient];
   self.barMaterial = [PlicoMaterial new];
   self.stackMaterial = [PlicoMaterial new];
   [root addSubview:self.barMaterial];

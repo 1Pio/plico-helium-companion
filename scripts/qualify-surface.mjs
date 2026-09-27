@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import http from 'node:http';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
 import { browser } from './cdp.mjs';
 import { verifyExtensionSource } from './verify-extension-source.mjs';
 import { defaults } from '../extension/settings.mjs';
@@ -79,6 +79,60 @@ try {
       path,
     ]);
     captures.push({ name, path, bounds: r });
+    if (process.argv.includes('--shadow') && name.endsWith('-loose')) {
+      const pid = JSON.parse(fs.readFileSync('.local/browser-pid.json')).pid;
+      const browserWindow = windows.find(
+        (w) => w.kCGWindowOwnerPID === pid && w.kCGWindowLayer === 0,
+      );
+      assert(browserWindow);
+      key('53');
+      const movie = `${folder}/${name}.mov`;
+      const recorder = spawn('build/bin/capture', [
+        String(pid),
+        String(panel.kCGWindowOwnerPID),
+        String(browserWindow.kCGWindowNumber),
+        movie,
+        '3',
+      ]);
+      let log = '';
+      const done = new Promise((resolve) => recorder.on('close', resolve));
+      const ready = new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          recorder.kill('SIGTERM');
+          reject(Error('Capture startup timeout'));
+        }, 5000);
+        recorder.stdout.on('data', (d) => {
+          log += d;
+          if (log.includes('capture-start')) {
+            clearTimeout(timeout);
+            resolve();
+          }
+        });
+        recorder.on('error', (e) => {
+          clearTimeout(timeout);
+          reject(e);
+        });
+      });
+      recorder.stderr.on('data', (d) => (log += d));
+      await ready;
+      await sleep(350);
+      key('cmd+,11');
+      await sleep(1400);
+      key('53');
+      assert.equal(await done, 0, 'scoped motion capture');
+      fs.writeFileSync(`${folder}/${name}-capture.jsonl`, log);
+      execFileSync('ffmpeg', [
+        '-v',
+        'error',
+        '-ss',
+        '1',
+        '-i',
+        movie,
+        '-frames:v',
+        '1',
+        `${folder}/${name}-context.png`,
+      ]);
+    }
   };
   for (const theme of ['dark', 'light']) {
     await api(

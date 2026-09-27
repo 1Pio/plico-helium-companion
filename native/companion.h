@@ -10,6 +10,9 @@
 using namespace plico;
 @class Companion;
 
+@interface PlicoAmbientView : NSView
+@end
+
 @interface NavigatorView : NSView
 @property (nonatomic, weak) Companion* owner;
 @property (nonatomic, strong) NSMutableArray* hits;
@@ -29,6 +32,7 @@ using namespace plico;
   pid_t heliumPID;
   PlicoBindings bindings;
 }
+@property (nonatomic, strong) PlicoAmbientView* barAmbient;
 @property (nonatomic, strong) NSNumber* reportedInputReady;
 @property (nonatomic, strong) NSNumber* reportedAccessibility;
 @property (nonatomic, strong) NSDictionary* snapshot;

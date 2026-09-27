@@ -1,5 +1,37 @@
 #include <algorithm>
 #import "companion.h"
+// Local experiment: a feathered ambient pool, drawn behind the native material.
+// It has no independent window, event handling, timers or implicit animations.
+@implementation PlicoAmbientView
+- (BOOL)isFlipped {
+  return YES;
+}
+- (NSView*)hitTest:(NSPoint)point {
+  return nil;
+}
+- (void)viewDidChangeEffectiveAppearance {
+  [super viewDidChangeEffectiveAppearance];
+  self.needsDisplay = YES;
+}
+- (void)drawRect:(NSRect)dirty {
+  CGContextRef context = NSGraphicsContext.currentContext.CGContext;
+  CGContextSaveGState(context);
+  CGContextClipToRect(context, NSRectToCGRect(self.bounds));
+  CGContextTranslateCTM(context, NSMidX(self.bounds), 53);
+  CGContextScaleCTM(context, MAX(1, self.bounds.size.width / 2), 32);
+  CGFloat strength = PlicoDark(self) ? 0.14 : 0.105;
+  CGFloat colors[] = {0, 0, 0, strength,        0, 0, 0, strength * 0.8,
+                      0, 0, 0, strength * 0.28, 0, 0, 0, 0};
+  CGFloat stops[] = {0, 0.4, 0.75, 1};
+  CGColorSpaceRef space = CGColorSpaceCreateDeviceRGB();
+  CGGradientRef gradient = CGGradientCreateWithColorComponents(space, colors, stops, 4);
+  CGContextDrawRadialGradient(context, gradient, CGPointZero, 0, CGPointZero, 1, 0);
+  CGGradientRelease(gradient);
+  CGColorSpaceRelease(space);
+  CGContextRestoreGState(context);
+}
+@end
+
 @implementation NavigatorView
 - (void)viewDidChangeEffectiveAppearance {
   [super viewDidChangeEffectiveAppearance];
@@ -57,6 +89,11 @@
   CGFloat barWidth = MIN(self.bounds.size.width - 16, MAX(120, total + 2 * endPadding));
   NSRect bar = NSMakeRect((self.bounds.size.width - barWidth) / 2, y, barWidth, h);
   c.barMaterial.frame = bar;
+  // The root is unflipped. The ambient view extends 48 points below the bar,
+  // stays inside the navigator's existing browser-contained panel, and ignores input.
+  c.barAmbient.frame =
+      NSMakeRect(NSMinX(bar) - 6, self.bounds.size.height - NSMaxY(bar) - 48, barWidth + 12, 96);
+  c.barAmbient.needsDisplay = YES;
   NSBezierPath* barClip = [NSBezierPath bezierPathWithRoundedRect:bar xRadius:h / 2 yRadius:h / 2];
   CGFloat visible = barWidth - 2 * endPadding;
   self.horizontalOffset =
@@ -192,7 +229,7 @@
       [[NSBezierPath bezierPathWithRoundedRect:surface xRadius:24 yRadius:24] addClip];
       NSColor* shade = [NSColor colorWithWhite:0 alpha:PlicoDark(self) ? 0.26 : 0.15];
       NSGradient* fade = [[NSGradient alloc] initWithStartingColor:shade
-                                                    endingColor:NSColor.clearColor];
+                                                       endingColor:NSColor.clearColor];
       if (index > before) {
         CGFloat edge = top + 34;
         NSRectClip(NSMakeRect(left - 4, edge, i.width + 8, 24));
@@ -203,7 +240,9 @@
         [NSGraphicsContext saveGraphicsState];
         [[NSBezierPath bezierPathWithRoundedRect:surface xRadius:24 yRadius:24] addClip];
         NSRectClip(NSMakeRect(left - 4, bottom - 24, i.width + 8, 24));
-        [fade drawFromPoint:NSMakePoint(left, bottom) toPoint:NSMakePoint(left, bottom - 24) options:0];
+        [fade drawFromPoint:NSMakePoint(left, bottom)
+                    toPoint:NSMakePoint(left, bottom - 24)
+                    options:0];
         [NSGraphicsContext restoreGraphicsState];
       }
       inStack = NO;
@@ -222,8 +261,11 @@
         tab(previews[n], NSMakeRect(x + 45 + n * 45, y + 8, 44, h - 16), NO, NO);
         [self.hits removeLastObject];
       }
-      [self.hits
-          addObject:@{@"rect" : [NSValue valueWithRect:NSIntersectionRect(rect, bar)], @"id" : @0, @"slot" : @(i.slot)}];
+      [self.hits addObject:@{
+        @"rect" : [NSValue valueWithRect:NSIntersectionRect(rect, bar)],
+        @"id" : @0,
+        @"slot" : @(i.slot)
+      }];
     }
     [NSGraphicsContext restoreGraphicsState];
     x += i.width + 8;

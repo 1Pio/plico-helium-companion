@@ -26,6 +26,12 @@ The signed 0.4.2 cleanup passed the source/native checks, 49 JavaScript tests, t
 
 The signed build passed existing source/native checks. An isolated 30-tab stack was captured in dark and light themes at its first, middle and last candidates, alongside a two-tab stack and loose-tab selection. In the tested 950-point browser window, eight rows fit from the first candidate and fourteen around a middle candidate. Only overflowing edges receive fades; a fitting stack has none. Panel bounds stayed inside the paired browser and previewing left its active tab unchanged. Native pointer checks passed for loose-tab selection, blank-space cancellation, vertical scrolling in held and toggled modes, and horizontal overflow scrolling. One foreground-interrupted attempt stopped safely; the uninterrupted rerun passed. A requested smaller window was overridden by the tiling environment, so that run is not small-window runtime proof.
 
+## Local ambient-shadow experiment
+
+The `navigation-ambient-shadow` branch adds a low-opacity elliptical gradient behind the bar material. It is clipped by the existing browser-contained panel, ignores hit testing, and introduces no animation, timer or extra window. It is a local experiment, not part of the installed 0.4.3 base refinement.
+
+The signed experiment passed the isolated dark/light surface fixture and pointer/scroll checks. An initial pointer attempt found no eligible panel and refused to click; a settled rerun passed. Scoped recordings show its appearance and dismissal over fixture content. Visual review sampled both three-second recordings and inspected consecutive frames around the light-theme reveal. This is synthetic-input evidence, not physical acceptance or every-frame coverage of both recordings. Small-window runtime coverage remains subject to the tiling limitation above.
+
 ## Resource sample
 
 In a controlled documentation-tab demo, the companion process consumed about 0.03 CPU seconds over each 30-second idle interval, roughly **0.1% of one core**, both hidden and with its navigator open. Resident memory remained around **102 MiB**. These short samples exclude Helium, page renderers and the extension worker; RSS includes shared resident pages and is not total memory pressure. They are observations, not universal performance guarantees. The attachment check also verified that an idle open navigator does not repeatedly poll debugger metadata.
