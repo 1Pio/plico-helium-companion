@@ -1,9 +1,13 @@
 # Changelog
 
-## 0.4.1 (release candidate)
+## 0.4.2 (release candidate)
 
-- Complete AppKit's window-update cycle when the Command-hold timer reveals the navigator, without waiting for another keyboard or mouse event.
-- Add a native event-loop regression for bare hold, cancellation and loss of browser pairing.
+- Remove the speculative AppKit wake event and its event-cycle test. Physical hold detection was blocked by deferred modifier events upstream of Plico; the wake event did not fix it.
+- Document immediate modifier delivery with preserved tap-alone actions for keyboard remappers.
+
+## 0.4.1 (superseded release candidate)
+
+- Added an application-local wake event after timer reveal. Its test covered an AppKit notification, not visible panel presentation. Both are removed in 0.4.2.
 
 ## 0.4.0 (release candidate)
 

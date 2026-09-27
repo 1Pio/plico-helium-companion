@@ -1,6 +1,6 @@
 # Qualification
 
-Plico 0.4.1 is a review candidate. Public publication is pending review of the README, presentation media and release package.
+Plico 0.4.2 is a review candidate. Public publication is pending review of the README, presentation media and release package.
 
 The candidate was exercised on **macOS 26.6, Apple Silicon, stock Helium 0.17.2.2**. This is a qualification statement for that combination, not a promise of broad Mac compatibility.
 
@@ -14,11 +14,13 @@ The candidate was exercised on **macOS 26.6, Apple Silicon, stock Helium 0.17.2.
 
 The same navigation behavior had earlier physical user confirmation. That confirmation is not a fresh physical acceptance test of this refactored candidate.
 
-## Command-hold investigation (0.4.1)
+## Command-hold investigation and cleanup
 
-The physical-key issue remains unresolved in 0.4.1: the navigator was reported to appear only after another input. The earlier trace measured time from receipt of the modifier event, not from physical key-down, so it did not establish timely physical event delivery. A separate native regression using the real `NSApplication` event loop reproduced a missing window-update cycle without keyboard or mouse events. It fails on the previous implementation and passes with one application-local wake event after timer reveal. Cancellation and loss of browser pairing also pass. This narrower regression does not reproduce or settle the physical-key issue.
+The 0.4.1 application-local wake event did not resolve the reported physical-key issue. Earlier traces measured time from event receipt, not physical key-down. Synthetic holds already worked before that change, and its event-loop test did not draw a real panel.
 
-The signed 0.4.1 candidate passed the isolated input/loading-page suite, and a screen recording verified visible reveal during a bare synthetic Command hold and dismissal on release. Synthetic holds also worked before this change. They do not establish a physical-key fix. No idle polling, global input injection or permanent App Nap exemption was added. Installation and retained rollback passed disposable-home checks. Keyboard remappers that defer modifier events are a documented compatibility boundary; see installation troubleshooting.
+Physical hold behavior was subsequently confirmed by the user after correcting deferred modifier delivery, without changing the 0.4.1 app. Version 0.4.2 removes the unsupported wake event and its implementation-specific test. Plico retains its single reveal timer; no polling or extra input injection is introduced. Keyboard-remapper compatibility and tap timing are described in installation troubleshooting.
+
+The signed 0.4.2 cleanup passed the source/native checks, 49 JavaScript tests, ten disposable-home installation tests and four update/rollback tests. The isolated input/loading-page suite passed, including hold reveal, release-to-commit, cancellation and editing passthrough. A scoped recording showed the panel appearing during a bare synthetic Command hold and disappearing on release without the wake event. The earlier physical confirmation used 0.4.1 with corrected modifier delivery; it is not a separate physical acceptance test of the cleanup binary. Earlier broad qualification above applies to the 0.4.0/0.4.1 candidates.
 
 ## Resource sample
 
