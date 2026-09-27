@@ -34,8 +34,7 @@ struct Commit {
 // browser activation and is the only operation that records recency.
 class NavigatorModel {
  public:
-  bool Reset(Layout layout, std::optional<TabId> active,
-             std::vector<TabId> recent = {});
+  bool Reset(Layout layout, std::optional<TabId> active, std::vector<TabId> recent = {});
   bool Begin(Mode mode);
   bool Latch();
   void Cancel();
@@ -60,14 +59,15 @@ class NavigatorModel {
   std::optional<TabId> active() const { return active_; }
   std::optional<TabId> candidate() const { return candidate_; }
   const Layout& committed() const { return committed_; }
-  const Layout& visible() const {
-    return mode_ == Mode::kHidden ? committed_ : working_;
-  }
+  const Layout& visible() const { return mode_ == Mode::kHidden ? committed_ : working_; }
   const std::vector<TabId>& recent() const { return recent_; }
   static bool Valid(const Layout& layout);
 
  private:
-  struct Position { int slot; int row; };  // slot -1 denotes loose tabs.
+  struct Position {
+    int slot;
+    int row;
+  };  // slot -1 denotes loose tabs.
   static std::optional<Position> Locate(const Layout&, TabId);
   static std::vector<TabId> AllTabs(const Layout&);
   static void Remove(Layout&, TabId);

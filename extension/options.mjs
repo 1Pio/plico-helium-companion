@@ -1,16 +1,129 @@
-import{defaults,normalizeSettings,migrateSettings}from'./settings.mjs';
-const labels={left:'Move left',down:'Move down',up:'Move up',right:'Move right',toggle:'Keep navigator open',new:'New destination',edit:'Edit current URL',copy:'Copy current URL',back:'Back / return to opener'};
-for(const[action,label]of Object.entries(labels)){const row=document.createElement('label');row.append(document.createTextNode(label));const chord=document.createElement('span'),input=document.createElement('input');chord.append(document.createTextNode(action==='copy'?'⌘ Shift + ':'⌘ + '));input.id=action;input.required=true;input.maxLength=9;input.setAttribute('aria-label',label+' key');chord.append(input);row.append(chord);document.querySelector('#keys').append(row);}
-for(let i=0;i<10;i++){
- const row=document.createElement('div');row.className='slot-row';const label=document.createElement('label');label.htmlFor='slot-'+i;label.textContent='Stack '+(i+1);row.append(label);
- const controls=document.createElement('div');controls.className='slot-controls';
- for(const [bit,name,symbol]of [[1,'Command','⌘'],[2,'Control','⌃'],[8,'Option','⌥']]){const label=document.createElement('label'),input=document.createElement('input');input.type='checkbox';input.id=`slot-${i}-mod-${bit}`;input.setAttribute('aria-label',`Stack ${i+1} ${name}`);label.append(input,document.createTextNode(symbol));controls.append(label);}
- const key=document.createElement('select');key.id='slot-'+i;key.setAttribute('aria-label',`Stack ${i+1} key`);
- for(const value of ['',...'1234567890']){const option=document.createElement('option');option.value=value;option.textContent=value||'Unbound';key.append(option);}controls.append(key);row.append(controls);document.querySelector('#slots').append(row);
- key.onchange=()=>{for(const input of controls.querySelectorAll('input'))input.disabled=!key.value;};
+import { defaults, normalizeSettings, migrateSettings } from './settings.mjs';
+const labels = {
+  left: 'Move left',
+  down: 'Move down',
+  up: 'Move up',
+  right: 'Move right',
+  toggle: 'Keep navigator open',
+  new: 'New destination',
+  edit: 'Edit current URL',
+  copy: 'Copy current URL',
+  back: 'Back / return to opener',
+};
+for (const [action, label] of Object.entries(labels)) {
+  const row = document.createElement('label');
+  row.append(document.createTextNode(label));
+  const chord = document.createElement('span'),
+    input = document.createElement('input');
+  chord.append(document.createTextNode(action === 'copy' ? '⌘ Shift + ' : '⌘ + '));
+  input.id = action;
+  input.required = true;
+  input.maxLength = 9;
+  input.setAttribute('aria-label', label + ' key');
+  chord.append(input);
+  row.append(chord);
+  document.querySelector('#keys').append(row);
 }
-function slotValues(){return Array.from({length:10},(_,i)=>{const key=document.getElementById('slot-'+i).value;return key?{key,modifiers:[1,2,8].reduce((mask,bit)=>mask|(document.getElementById(`slot-${i}-mod-${bit}`).checked?bit:0),0)}:null;});}
-function show(value){for(let i=0;i<10;i++){const b=value.slots[i];const key=document.getElementById('slot-'+i);key.value=b?.key??'';for(const bit of [1,2,8])document.getElementById(`slot-${i}-mod-${bit}`).checked=!!(b?.modifiers&bit);key.onchange();}document.querySelector('#theme').value=value.theme??'system';document.documentElement.dataset.theme=value.theme??'system';document.querySelector('#delay').value=value.revealDelayMs;for(const[action,key]of Object.entries(value.keys))document.getElementById(action).value=key;}
-const stored=(await chrome.storage.local.get('plicoSettings')).plicoSettings;let initial=defaults;try{if(stored)initial=migrateSettings(stored);}catch{}show(initial);if(stored&&!stored.slots)document.querySelector('#status').textContent='Command+0 is now free for Helium zoom reset. Stack 10 remains available and can be assigned a shortcut below.';if(stored?.keys&&Object.keys(initial.keys).some(k=>stored.keys[k]!==initial.keys[k]))document.querySelector('#status').textContent='W and M now close and mute candidates. Conflicting shortcuts were reassigned; your other preferences are preserved. Save to keep these mappings.';
-document.querySelector('#reset').onclick=()=>{show(defaults);document.querySelector('#status').textContent='Defaults ready. Save to apply.';};
-document.querySelector('#settings').onsubmit=async e=>{e.preventDefault();const status=document.querySelector('#status');try{const value=normalizeSettings({theme:document.querySelector('#theme').value,revealDelayMs:Number(document.querySelector('#delay').value),slots:slotValues(),keys:Object.fromEntries(Object.keys(labels).map(a=>[a,document.getElementById(a).value.trim()]))});await chrome.storage.local.set({plicoSettings:value});document.documentElement.dataset.theme=value.theme;status.textContent='Saved.';}catch(error){status.textContent=error.message;}};
+for (let i = 0; i < 10; i++) {
+  const row = document.createElement('div');
+  row.className = 'slot-row';
+  const label = document.createElement('label');
+  label.htmlFor = 'slot-' + i;
+  label.textContent = 'Stack ' + (i + 1);
+  row.append(label);
+  const controls = document.createElement('div');
+  controls.className = 'slot-controls';
+  for (const [bit, name, symbol] of [
+    [1, 'Command', '⌘'],
+    [2, 'Control', '⌃'],
+    [8, 'Option', '⌥'],
+  ]) {
+    const label = document.createElement('label'),
+      input = document.createElement('input');
+    input.type = 'checkbox';
+    input.id = `slot-${i}-mod-${bit}`;
+    input.setAttribute('aria-label', `Stack ${i + 1} ${name}`);
+    label.append(input, document.createTextNode(symbol));
+    controls.append(label);
+  }
+  const key = document.createElement('select');
+  key.id = 'slot-' + i;
+  key.setAttribute('aria-label', `Stack ${i + 1} key`);
+  for (const value of ['', ...'1234567890']) {
+    const option = document.createElement('option');
+    option.value = value;
+    option.textContent = value || 'Unbound';
+    key.append(option);
+  }
+  controls.append(key);
+  row.append(controls);
+  document.querySelector('#slots').append(row);
+  key.onchange = () => {
+    for (const input of controls.querySelectorAll('input')) input.disabled = !key.value;
+  };
+}
+function slotValues() {
+  return Array.from({ length: 10 }, (_, i) => {
+    const key = document.getElementById('slot-' + i).value;
+    return key
+      ? {
+          key,
+          modifiers: [1, 2, 8].reduce(
+            (mask, bit) =>
+              mask | (document.getElementById(`slot-${i}-mod-${bit}`).checked ? bit : 0),
+            0,
+          ),
+        }
+      : null;
+  });
+}
+function show(value) {
+  for (let i = 0; i < 10; i++) {
+    const b = value.slots[i];
+    const key = document.getElementById('slot-' + i);
+    key.value = b?.key ?? '';
+    for (const bit of [1, 2, 8])
+      document.getElementById(`slot-${i}-mod-${bit}`).checked = !!(b?.modifiers & bit);
+    key.onchange();
+  }
+  document.querySelector('#theme').value = value.theme ?? 'system';
+  document.documentElement.dataset.theme = value.theme ?? 'system';
+  document.querySelector('#delay').value = value.revealDelayMs;
+  for (const [action, key] of Object.entries(value.keys))
+    document.getElementById(action).value = key;
+}
+const stored = (await chrome.storage.local.get('plicoSettings')).plicoSettings;
+let initial = defaults;
+try {
+  if (stored) initial = migrateSettings(stored);
+} catch {}
+show(initial);
+if (stored && !stored.slots)
+  document.querySelector('#status').textContent =
+    'Command+0 is now free for Helium zoom reset. Stack 10 remains available and can be assigned a shortcut below.';
+if (stored?.keys && Object.keys(initial.keys).some((k) => stored.keys[k] !== initial.keys[k]))
+  document.querySelector('#status').textContent =
+    'W and M now close and mute candidates. Conflicting shortcuts were reassigned; your other preferences are preserved. Save to keep these mappings.';
+document.querySelector('#reset').onclick = () => {
+  show(defaults);
+  document.querySelector('#status').textContent = 'Defaults ready. Save to apply.';
+};
+document.querySelector('#settings').onsubmit = async (e) => {
+  e.preventDefault();
+  const status = document.querySelector('#status');
+  try {
+    const value = normalizeSettings({
+      theme: document.querySelector('#theme').value,
+      revealDelayMs: Number(document.querySelector('#delay').value),
+      slots: slotValues(),
+      keys: Object.fromEntries(
+        Object.keys(labels).map((a) => [a, document.getElementById(a).value.trim()]),
+      ),
+    });
+    await chrome.storage.local.set({ plicoSettings: value });
+    document.documentElement.dataset.theme = value.theme;
+    status.textContent = 'Saved.';
+  } catch (error) {
+    status.textContent = error.message;
+  }
+};

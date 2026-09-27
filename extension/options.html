@@ -1,3 +1,185 @@
-<!doctype html><html lang="en"><meta charset="utf-8"><title>Plico settings</title><style>
-:root{font:15px system-ui;color:#24272a;background:#f6f6f3}body{max-width:520px;margin:56px auto;padding:0 24px}h1{font-size:30px;font-weight:550;letter-spacing:-1px}h2{font-size:17px;margin-top:32px}p{line-height:1.55;color:#575c60}label{display:flex;align-items:center;justify-content:space-between;padding:10px 0;gap:20px}input{width:100px;border:1px solid #d9ddde;border-radius:8px;background:#fff;padding:9px;font:inherit}button{border:1px solid #d9ddde;background:white;border-radius:8px;padding:10px 16px;font:inherit;cursor:pointer}button[type=submit]{background:#294e70;color:white;border-color:transparent}#status{min-height:24px}kbd{font:inherit;color:#294e70}footer{margin-top:32px;font-size:13px}select{font:inherit;padding:9px;border-radius:8px} :root[data-theme=dark]{color-scheme:dark;color:#eee;background:#17191c} :root[data-theme=dark] p{color:#adb1b8} :root[data-theme=dark] input,:root[data-theme=dark] button{color:#eee;background:#26292e;border-color:#454a51} @media(prefers-color-scheme:dark){:root:not([data-theme=light]){color-scheme:dark;color:#eee;background:#17191c}:root:not([data-theme=light]) p{color:#adb1b8}:root:not([data-theme=light]) input,:root:not([data-theme=light]) button{color:#eee;background:#26292e;border-color:#454a51}}.slot-row{display:flex;align-items:center;justify-content:space-between;gap:16px}.slot-controls{display:flex;gap:12px;align-items:center}.slot-controls label{gap:4px}.slot-controls input{width:auto}.slot-controls select{min-width:100px}</style>
-<h1>plico</h1><p>Navigation for Helium, ready when you need it.</p><form id="settings"><label>Appearance <select id="theme"><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select></label><label>Hold Command to reveal <span><input id="delay" type="number" min="0" max="2000" step="1" required aria-label="Reveal delay in milliseconds"> ms</span></label><p>Navigation shortcuts reveal immediately. Ordinary shortcuts dismiss the navigator and continue to the page.</p><h2>Shortcuts</h2><div id="keys"></div><p>Arrow keys also navigate. Add Shift to move tabs. Control+Tab cycles recent tabs. Escape cancels.</p><p>Hold Command or use movement shortcuts even while a page input is focused or the page is loading. Dedicated navigation takes priority; ordinary editing shortcuts and Back in a focused text field keep editing the page. Password fields protected by macOS Secure Input can block navigation shortcuts.</p><h2>Stack shortcuts</h2><p>Choose a digit and modifier keys for each slot, or leave it unbound. Add Shift to sort the candidate into that stack. Command+0 stays available for Helium zoom reset. All ten stacks remain available through navigation.</p><div id="slots"></div><button type="submit">Save</button> <button type="button" id="reset">Restore defaults</button><p id="status" role="status" aria-live="polite"></p></form><p>A blue border means a debugger was attached when the navigator opened. Plico only checks attachment metadata; it does not identify or control the debugger. Reopen the navigator to refresh. A speaker means audio is playing; a crossed speaker stays visible while muted. Command+M toggles mute and Command+W closes the candidate. The small dot marks the current page. Shift plus its configured stack shortcut sorts into a stack while selection stays behind.</p><footer>Settings stay in this browser profile. Plico never changes macOS shortcuts globally.</footer><script type="module" src="options.mjs"></script></html>
+<!doctype html>
+<html lang="en">
+  <meta charset="utf-8" /><title>Plico settings</title
+  ><style>
+    :root {
+      font: 15px system-ui;
+      color: #24272a;
+      background: #f6f6f3;
+    }
+    body {
+      max-width: 520px;
+      margin: 56px auto;
+      padding: 0 24px;
+    }
+    h1 {
+      font-size: 30px;
+      font-weight: 550;
+      letter-spacing: -1px;
+    }
+    h2 {
+      font-size: 17px;
+      margin-top: 32px;
+    }
+    p {
+      line-height: 1.55;
+      color: #575c60;
+    }
+    label {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 0;
+      gap: 20px;
+    }
+    input {
+      width: 100px;
+      border: 1px solid #d9ddde;
+      border-radius: 8px;
+      background: #fff;
+      padding: 9px;
+      font: inherit;
+    }
+    button {
+      border: 1px solid #d9ddde;
+      background: white;
+      border-radius: 8px;
+      padding: 10px 16px;
+      font: inherit;
+      cursor: pointer;
+    }
+    button[type='submit'] {
+      background: #294e70;
+      color: white;
+      border-color: transparent;
+    }
+    #status {
+      min-height: 24px;
+    }
+    kbd {
+      font: inherit;
+      color: #294e70;
+    }
+    footer {
+      margin-top: 32px;
+      font-size: 13px;
+    }
+    select {
+      font: inherit;
+      padding: 9px;
+      border-radius: 8px;
+    }
+    :root[data-theme='dark'] {
+      color-scheme: dark;
+      color: #eee;
+      background: #17191c;
+    }
+    :root[data-theme='dark'] p {
+      color: #adb1b8;
+    }
+    :root[data-theme='dark'] input,
+    :root[data-theme='dark'] button {
+      color: #eee;
+      background: #26292e;
+      border-color: #454a51;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme='light']) {
+        color-scheme: dark;
+        color: #eee;
+        background: #17191c;
+      }
+      :root:not([data-theme='light']) p {
+        color: #adb1b8;
+      }
+      :root:not([data-theme='light']) input,
+      :root:not([data-theme='light']) button {
+        color: #eee;
+        background: #26292e;
+        border-color: #454a51;
+      }
+    }
+    .slot-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+    .slot-controls {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+    .slot-controls label {
+      gap: 4px;
+    }
+    .slot-controls input {
+      width: auto;
+    }
+    .slot-controls select {
+      min-width: 100px;
+    }
+  </style>
+  <h1>plico</h1>
+  <p>Navigation for Helium, ready when you need it.</p>
+  <form id="settings">
+    <label
+      >Appearance
+      <select id="theme">
+        <option value="system">System</option>
+        <option value="light">Light</option>
+        <option value="dark">Dark</option>
+      </select></label
+    ><label
+      >Hold Command to reveal
+      <span
+        ><input
+          id="delay"
+          type="number"
+          min="0"
+          max="2000"
+          step="1"
+          required
+          aria-label="Reveal delay in milliseconds"
+        />
+        ms</span
+      ></label
+    >
+    <p>
+      Navigation shortcuts reveal immediately. Ordinary shortcuts dismiss the navigator and continue
+      to the page.
+    </p>
+    <h2>Shortcuts</h2>
+    <div id="keys"></div>
+    <p>
+      Arrow keys also navigate. Add Shift to move tabs. Control+Tab cycles recent tabs. Escape
+      cancels.
+    </p>
+    <p>
+      Hold Command or use movement shortcuts even while a page input is focused or the page is
+      loading. Dedicated navigation takes priority; ordinary editing shortcuts and Back in a focused
+      text field keep editing the page. Password fields protected by macOS Secure Input can block
+      navigation shortcuts.
+    </p>
+    <h2>Stack shortcuts</h2>
+    <p>
+      Choose a digit and modifier keys for each slot, or leave it unbound. Add Shift to sort the
+      candidate into that stack. Command+0 stays available for Helium zoom reset. All ten stacks
+      remain available through navigation.
+    </p>
+    <div id="slots"></div>
+    <button type="submit">Save</button> <button type="button" id="reset">Restore defaults</button>
+    <p id="status" role="status" aria-live="polite"></p>
+  </form>
+  <p>
+    A blue border means a debugger was attached when the navigator opened. Plico only checks
+    attachment metadata; it does not identify or control the debugger. Reopen the navigator to
+    refresh. A speaker means audio is playing; a crossed speaker stays visible while muted.
+    Command+M toggles mute and Command+W closes the candidate. The small dot marks the current page.
+    Shift plus its configured stack shortcut sorts into a stack while selection stays behind.
+  </p>
+  <footer>
+    Settings stay in this browser profile. Plico never changes macOS shortcuts globally.
+  </footer>
+  <script type="module" src="options.mjs"></script>
+</html>

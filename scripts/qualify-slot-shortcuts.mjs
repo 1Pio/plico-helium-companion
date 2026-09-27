@@ -1,14 +1,125 @@
-import http from 'node:http';import assert from'node:assert/strict';import fs from'node:fs';import{execFileSync,spawn}from'node:child_process';import{browser}from'./cdp.mjs';import{verifyExtensionSource}from'./verify-extension-source.mjs';import{defaults}from'../extension/settings.mjs';
-const sleep=ms=>new Promise(r=>setTimeout(r,ms)),native=(...a)=>execFileSync('python3',['scripts/native-input.py',...a],{encoding:'utf8'}),key=s=>native('gesture',s,'0');
-const server=http.createServer((req,res)=>res.end('<!doctype html><title>Plico shortcuts</title><h1>Shortcut fixture</h1>'));await new Promise(r=>server.listen(0,'127.0.0.1',r));const base='http://127.0.0.1:'+server.address().port+'/';const b=await browser();let api,wid,saved,held;const passed=[];
-try{const worker=(await b.call('Target.getTargets')).targetInfos.find(t=>t.type==='service_worker'&&t.url.includes('baedceam'));const{sessionId}=await b.call('Target.attachToTarget',{targetId:worker.targetId,flatten:true});await verifyExtensionSource(b,sessionId);
-api=async expression=>{const r=await b.call('Runtime.evaluate',{expression,awaitPromise:true,returnByValue:true},sessionId);if(r.exceptionDetails)throw Error(r.exceptionDetails.exception?.description);return r.result.value;};saved=await api("chrome.storage.local.get('plicoSettings')");const {slots,...old}=defaults;await api(`chrome.storage.local.set({plicoSettings:${JSON.stringify(old)}})`);await sleep(200);assert.equal((await api("chrome.storage.local.get('plicoSettings')")).plicoSettings.slots[9],null);passed.push('legacy settings persist migration to unbound tenth slot');
-const w=await api(`chrome.windows.create({url:${JSON.stringify([base+'?one',base+'?two',base+'?ten'])},focused:true})`);wid=w.id;await sleep(350);native('activate');await api(`chrome.windows.update(${wid},{focused:true})`);const tabs=()=>api(`chrome.tabs.query({windowId:${wid}})`),ids=(await tabs()).map(t=>t.id),[a,c,d]=ids;
-for(const [index,id]of [[0,c],[9,d]]){const g=await api(`chrome.tabs.group({tabIds:[${id}],createProperties:{windowId:${wid}}})`);await api(`chrome.tabGroups.update(${g},{title:'plico:${index+1}'})`);}await api(`chrome.tabs.update(${a},{active:true})`);await sleep(250);await api(`chrome.tabs.setZoom(${a},1.5)`);key('cmd+,29');await sleep(200);assert.equal(await api(`chrome.tabs.getZoom(${a})`),1);assert.equal((await tabs()).find(t=>t.active).id,a);passed.push('actual native Command+0 resets Helium zoom and does not select stack ten');
-const config=structuredClone(defaults);config.slots[0]={key:'1',modifiers:2};config.slots[9]={key:'0',modifiers:8};await api(`chrome.storage.local.set({plicoSettings:${JSON.stringify(config)}})`);await sleep(200);
-held=spawn('python3',['scripts/native-input.py','gesture','ctrl+,18,wait','850']);const done=new Promise(r=>held.on('close',code=>r(code)));await sleep(350);assert.equal((await tabs()).find(t=>t.active).id,a);assert(JSON.parse(native('windows')).some(w=>w.kCGWindowName==='Plico Navigator'));assert.equal(await done,0);held=null;await sleep(150);assert.equal((await tabs()).find(t=>t.active).id,c);passed.push('Control+1 previews and commits on Control release');
-key('alt+,29');await sleep(200);assert.equal((await tabs()).find(t=>t.active).id,d);passed.push('Option+0 reaches tenth slot');
-key('cmd+,11');key('ctrl+,shift+,18');key('cmd+,11');await sleep(300);const s=await api('__plicoQualification.queue(()=>__plicoQualification.snapshot())');assert(s.state.stacks[0].includes(d));assert.equal(s.state.stacks[9].length,0);passed.push('Shift plus remapped stack chord sorts through latched commit');
-config.slots[9]=null;await api(`chrome.storage.local.set({plicoSettings:${JSON.stringify(config)}})`);await sleep(150);assert.deepEqual((await api("chrome.storage.local.get('plicoSettings')")).plicoSettings,config);passed.push('explicit unbinding persists');
-const result={at:new Date().toISOString(),passed};fs.writeFileSync('.local/slot-shortcuts-result.json',JSON.stringify(result,null,2));console.log(result);
-}finally{if(held&&held.exitCode===null){held.kill('SIGTERM');await new Promise(r=>held.on('close',r));}try{if(api){if(wid)await api(`chrome.windows.remove(${wid})`);await api(saved?.plicoSettings?`chrome.storage.local.set(${JSON.stringify(saved)})`:"chrome.storage.local.remove('plicoSettings')");}}finally{b.close();server.close();}}
+import http from 'node:http';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import { execFileSync, spawn } from 'node:child_process';
+import { browser } from './cdp.mjs';
+import { verifyExtensionSource } from './verify-extension-source.mjs';
+import { defaults } from '../extension/settings.mjs';
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms)),
+  native = (...a) =>
+    execFileSync('python3', ['scripts/native-input.py', ...a], { encoding: 'utf8' }),
+  key = (s) => native('gesture', s, '0');
+const server = http.createServer((req, res) =>
+  res.end('<!doctype html><title>Plico shortcuts</title><h1>Shortcut fixture</h1>'),
+);
+await new Promise((r) => server.listen(0, '127.0.0.1', r));
+const base = 'http://127.0.0.1:' + server.address().port + '/';
+const b = await browser();
+let api, wid, saved, held;
+const passed = [];
+try {
+  const worker = (await b.call('Target.getTargets')).targetInfos.find(
+    (t) => t.type === 'service_worker' && t.url.includes('baedceam'),
+  );
+  const { sessionId } = await b.call('Target.attachToTarget', {
+    targetId: worker.targetId,
+    flatten: true,
+  });
+  await verifyExtensionSource(b, sessionId);
+  api = async (expression) => {
+    const r = await b.call(
+      'Runtime.evaluate',
+      { expression, awaitPromise: true, returnByValue: true },
+      sessionId,
+    );
+    if (r.exceptionDetails) throw Error(r.exceptionDetails.exception?.description);
+    return r.result.value;
+  };
+  saved = await api("chrome.storage.local.get('plicoSettings')");
+  const { slots, ...old } = defaults;
+  await api(`chrome.storage.local.set({plicoSettings:${JSON.stringify(old)}})`);
+  await sleep(200);
+  assert.equal(
+    (await api("chrome.storage.local.get('plicoSettings')")).plicoSettings.slots[9],
+    null,
+  );
+  passed.push('legacy settings persist migration to unbound tenth slot');
+  const w = await api(
+    `chrome.windows.create({url:${JSON.stringify([base + '?one', base + '?two', base + '?ten'])},focused:true})`,
+  );
+  wid = w.id;
+  await sleep(350);
+  native('activate');
+  await api(`chrome.windows.update(${wid},{focused:true})`);
+  const tabs = () => api(`chrome.tabs.query({windowId:${wid}})`),
+    ids = (await tabs()).map((t) => t.id),
+    [a, c, d] = ids;
+  for (const [index, id] of [
+    [0, c],
+    [9, d],
+  ]) {
+    const g = await api(`chrome.tabs.group({tabIds:[${id}],createProperties:{windowId:${wid}}})`);
+    await api(`chrome.tabGroups.update(${g},{title:'plico:${index + 1}'})`);
+  }
+  await api(`chrome.tabs.update(${a},{active:true})`);
+  await sleep(250);
+  await api(`chrome.tabs.setZoom(${a},1.5)`);
+  key('cmd+,29');
+  await sleep(200);
+  assert.equal(await api(`chrome.tabs.getZoom(${a})`), 1);
+  assert.equal((await tabs()).find((t) => t.active).id, a);
+  passed.push('actual native Command+0 resets Helium zoom and does not select stack ten');
+  const config = structuredClone(defaults);
+  config.slots[0] = { key: '1', modifiers: 2 };
+  config.slots[9] = { key: '0', modifiers: 8 };
+  await api(`chrome.storage.local.set({plicoSettings:${JSON.stringify(config)}})`);
+  await sleep(200);
+  held = spawn('python3', ['scripts/native-input.py', 'gesture', 'ctrl+,18,wait', '850']);
+  const done = new Promise((r) => held.on('close', (code) => r(code)));
+  await sleep(350);
+  assert.equal((await tabs()).find((t) => t.active).id, a);
+  assert(JSON.parse(native('windows')).some((w) => w.kCGWindowName === 'Plico Navigator'));
+  assert.equal(await done, 0);
+  held = null;
+  await sleep(150);
+  assert.equal((await tabs()).find((t) => t.active).id, c);
+  passed.push('Control+1 previews and commits on Control release');
+  key('alt+,29');
+  await sleep(200);
+  assert.equal((await tabs()).find((t) => t.active).id, d);
+  passed.push('Option+0 reaches tenth slot');
+  key('cmd+,11');
+  key('ctrl+,shift+,18');
+  key('cmd+,11');
+  await sleep(300);
+  const s = await api('__plicoQualification.queue(()=>__plicoQualification.snapshot())');
+  assert(s.state.stacks[0].includes(d));
+  assert.equal(s.state.stacks[9].length, 0);
+  passed.push('Shift plus remapped stack chord sorts through latched commit');
+  config.slots[9] = null;
+  await api(`chrome.storage.local.set({plicoSettings:${JSON.stringify(config)}})`);
+  await sleep(150);
+  assert.deepEqual((await api("chrome.storage.local.get('plicoSettings')")).plicoSettings, config);
+  passed.push('explicit unbinding persists');
+  const result = { at: new Date().toISOString(), passed };
+  fs.writeFileSync('.local/slot-shortcuts-result.json', JSON.stringify(result, null, 2));
+  console.log(result);
+} finally {
+  if (held && held.exitCode === null) {
+    held.kill('SIGTERM');
+    await new Promise((r) => held.on('close', r));
+  }
+  try {
+    if (api) {
+      if (wid) await api(`chrome.windows.remove(${wid})`);
+      await api(
+        saved?.plicoSettings
+          ? `chrome.storage.local.set(${JSON.stringify(saved)})`
+          : "chrome.storage.local.remove('plicoSettings')",
+      );
+    }
+  } finally {
+    b.close();
+    server.close();
+  }
+}

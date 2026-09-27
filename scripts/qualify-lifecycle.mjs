@@ -1,13 +1,36 @@
-import {verifyExtensionSource} from './verify-extension-source.mjs';
+import { verifyExtensionSource } from './verify-extension-source.mjs';
 // Two-stage real browser restart check. Only owned, public fixture URLs.
-import fs from 'node:fs';import assert from 'node:assert/strict';import {browser} from './cdp.mjs';
-const b=await browser();try{
- const {targetInfos}=await b.call('Target.getTargets');const worker=targetInfos.find(t=>t.type==='service_worker'&&t.url.includes('baedceam'));assert(worker);
- const {sessionId}=await b.call('Target.attachToTarget',{targetId:worker.targetId,flatten:true});
- await verifyExtensionSource(b,sessionId);
- const mode=process.argv[2]||'prepare';if(!['prepare','check'].includes(mode))throw Error('prepare|check only');
- const fixtureFile='.local/lifecycle-fixture.json';const suffix=mode==='prepare'?crypto.randomUUID():null;const urls=mode==='prepare'?['https://example.com/#plico-persist-a-','https://example.org/#plico-persist-b-','https://example.net/#plico-persist-c-'].map(u=>u+suffix):JSON.parse(fs.readFileSync(fixtureFile,'utf8')).urls;
- const r=await b.call('Runtime.evaluate',{awaitPromise:true,returnByValue:true,expression:`(async()=>{
+import fs from 'node:fs';
+import assert from 'node:assert/strict';
+import { browser } from './cdp.mjs';
+const b = await browser();
+try {
+  const { targetInfos } = await b.call('Target.getTargets');
+  const worker = targetInfos.find((t) => t.type === 'service_worker' && t.url.includes('baedceam'));
+  assert(worker);
+  const { sessionId } = await b.call('Target.attachToTarget', {
+    targetId: worker.targetId,
+    flatten: true,
+  });
+  await verifyExtensionSource(b, sessionId);
+  const mode = process.argv[2] || 'prepare';
+  if (!['prepare', 'check'].includes(mode)) throw Error('prepare|check only');
+  const fixtureFile = '.local/lifecycle-fixture.json';
+  const suffix = mode === 'prepare' ? crypto.randomUUID() : null;
+  const urls =
+    mode === 'prepare'
+      ? [
+          'https://example.com/#plico-persist-a-',
+          'https://example.org/#plico-persist-b-',
+          'https://example.net/#plico-persist-c-',
+        ].map((u) => u + suffix)
+      : JSON.parse(fs.readFileSync(fixtureFile, 'utf8')).urls;
+  const r = await b.call(
+    'Runtime.evaluate',
+    {
+      awaitPromise: true,
+      returnByValue: true,
+      expression: `(async()=>{
  const m=globalThis.__plicoQualification, sleep=ms=>new Promise(r=>setTimeout(r,ms));
  const urls=${JSON.stringify(urls)};
  let win;
@@ -36,6 +59,14 @@ const b=await browser();try{
  if(s.recent[0]!==c||s.recent[1]!==b)throw Error('MRU was not retained');
  await sleep(250);
  return {mode:${JSON.stringify(mode)},window:win.id,passed:['stack last-used member','MRU order',...(${JSON.stringify(mode)}==='prepare'?['new tab before stacks','rapid intermediate stack visit','closed identical window does not retain an anchor']:['real browser session restore'])]};
-})()`},sessionId);
- if(r.exceptionDetails)throw Error(r.exceptionDetails.exception?.description);console.log(JSON.stringify(r.result.value,null,2));if(mode==='prepare')fs.writeFileSync(fixtureFile,JSON.stringify({urls},null,2));fs.writeFileSync('.local/lifecycle-'+mode+'.json',JSON.stringify(r.result.value,null,2));
-}finally{b.close();}
+})()`,
+    },
+    sessionId,
+  );
+  if (r.exceptionDetails) throw Error(r.exceptionDetails.exception?.description);
+  console.log(JSON.stringify(r.result.value, null, 2));
+  if (mode === 'prepare') fs.writeFileSync(fixtureFile, JSON.stringify({ urls }, null, 2));
+  fs.writeFileSync('.local/lifecycle-' + mode + '.json', JSON.stringify(r.result.value, null, 2));
+} finally {
+  b.close();
+}

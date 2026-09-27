@@ -12,8 +12,22 @@ namespace plico {
 
 enum Modifier : unsigned { kCommand = 1, kControl = 2, kShift = 4, kOption = 8 };
 enum class Action {
-  kOther, kLeft, kRight, kUp, kDown, kStack, kToggle, kRecent,
-  kEscape, kAccept, kNewDestination, kEditURL, kCopyURL, kBack, kClose, kMute,
+  kOther,
+  kLeft,
+  kRight,
+  kUp,
+  kDown,
+  kStack,
+  kToggle,
+  kRecent,
+  kEscape,
+  kAccept,
+  kNewDestination,
+  kEditURL,
+  kCopyURL,
+  kBack,
+  kClose,
+  kMute,
 };
 enum class HostAction { kNone, kNewDestination, kEditURL, kCopyURL, kBack, kClose, kMute };
 struct GestureResult {
@@ -29,8 +43,7 @@ class GestureRouter {
  public:
   explicit GestureRouter(NavigatorModel& model) : model_(model) {}
   GestureResult ModifiersChanged(unsigned modifiers, std::int64_t now);
-  GestureResult KeyDown(Action action, unsigned modifiers, bool repeat = false,
-                        int stack = -1);
+  GestureResult KeyDown(Action action, unsigned modifiers, bool repeat = false, int stack = -1);
   void RevealIfDue(std::int64_t now);
   void Cancel();
   void SetEditorOwnsInput(bool owns);

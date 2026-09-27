@@ -11,15 +11,12 @@ bool Has(const std::vector<TabId>& tabs, TabId tab) {
   return std::find(tabs.begin(), tabs.end(), tab) != tabs.end();
 }
 bool Direction(int value) { return value == -1 || value == 1; }
-int Wrapped(int row, int delta, int count) {
-  return (row + delta + count) % count;
-}
+int Wrapped(int row, int delta, int count) { return (row + delta + count) % count; }
 }  // namespace
 
 std::vector<TabId> NavigatorModel::AllTabs(const Layout& layout) {
   auto result = layout.loose;
-  for (const auto& stack : layout.stacks)
-    result.insert(result.end(), stack.begin(), stack.end());
+  for (const auto& stack : layout.stacks) result.insert(result.end(), stack.begin(), stack.end());
   return result;
 }
 
@@ -28,14 +25,13 @@ bool NavigatorModel::Valid(const Layout& layout) {
   std::sort(all.begin(), all.end());
   if (std::adjacent_find(all.begin(), all.end()) != all.end()) return false;
   for (int slot = 0; slot < kStackCount; ++slot) {
-    if (layout.last_active[slot] &&
-        !Has(layout.stacks[slot], *layout.last_active[slot])) return false;
+    if (layout.last_active[slot] && !Has(layout.stacks[slot], *layout.last_active[slot]))
+      return false;
   }
   return true;
 }
 
-std::optional<NavigatorModel::Position> NavigatorModel::Locate(
-    const Layout& layout, TabId tab) {
+std::optional<NavigatorModel::Position> NavigatorModel::Locate(const Layout& layout, TabId tab) {
   for (int slot = -1; slot < kStackCount; ++slot) {
     const auto& list = slot < 0 ? layout.loose : layout.stacks[slot];
     auto it = std::find(list.begin(), list.end(), tab);
@@ -46,8 +42,7 @@ std::optional<NavigatorModel::Position> NavigatorModel::Locate(
 
 void NavigatorModel::RepairMemory(Layout& layout) {
   for (int slot = 0; slot < kStackCount; ++slot) {
-    if (layout.last_active[slot] &&
-        !Has(layout.stacks[slot], *layout.last_active[slot])) {
+    if (layout.last_active[slot] && !Has(layout.stacks[slot], *layout.last_active[slot])) {
       // A display fallback is not evidence of an actual activation.
       layout.last_active[slot].reset();
     }
@@ -60,8 +55,7 @@ void NavigatorModel::Remove(Layout& layout, TabId tab) {
   RepairMemory(layout);
 }
 
-bool NavigatorModel::Reset(Layout layout, std::optional<TabId> active,
-                           std::vector<TabId> recent) {
+bool NavigatorModel::Reset(Layout layout, std::optional<TabId> active, std::vector<TabId> recent) {
   if (!Valid(layout) || (active && !Locate(layout, *active))) return false;
   committed_ = std::move(layout);
   active_ = active;
@@ -138,8 +132,8 @@ bool NavigatorModel::Choose(TabId tab) {
 bool NavigatorModel::Select(TabId tab) { return Choose(tab); }
 
 bool NavigatorModel::SelectStack(int slot) {
-  if (!CanOrganize() || slot < 0 || slot >= kStackCount ||
-      working_.stacks[slot].empty()) return false;
+  if (!CanOrganize() || slot < 0 || slot >= kStackCount || working_.stacks[slot].empty())
+    return false;
   const auto& stack = working_.stacks[slot];
   auto remembered = tentative_last_[slot];
   return Choose(remembered && Has(stack, *remembered) ? *remembered : stack.front());
@@ -147,18 +141,22 @@ bool NavigatorModel::SelectStack(int slot) {
 
 bool NavigatorModel::SelectHorizontal(int direction) {
   if (!CanOrganize() || !Direction(direction)) return false;
-  struct Target { TabId tab; int slot; };
+  struct Target {
+    TabId tab;
+    int slot;
+  };
   std::vector<Target> targets;
   for (auto tab : working_.loose) targets.push_back({tab, -1});
-  for (int slot=0; slot<kStackCount; ++slot)
+  for (int slot = 0; slot < kStackCount; ++slot)
     if (!working_.stacks[slot].empty()) targets.push_back({0, slot});
-  auto position=Locate(working_, *candidate_);
-  auto it=std::find_if(targets.begin(),targets.end(),[&](auto t){
-    return position->slot<0 ? t.slot<0 && t.tab==*candidate_ : t.slot==position->slot;
+  auto position = Locate(working_, *candidate_);
+  auto it = std::find_if(targets.begin(), targets.end(), [&](auto t) {
+    return position->slot < 0 ? t.slot < 0 && t.tab == *candidate_ : t.slot == position->slot;
   });
-  if(it==targets.end())return false;
-  auto next=targets[Wrapped(static_cast<int>(it-targets.begin()),direction,static_cast<int>(targets.size()))];
-  return next.slot<0 ? Choose(next.tab) : SelectStack(next.slot);
+  if (it == targets.end()) return false;
+  auto next = targets[Wrapped(static_cast<int>(it - targets.begin()), direction,
+                              static_cast<int>(targets.size()))];
+  return next.slot < 0 ? Choose(next.tab) : SelectStack(next.slot);
 }
 
 bool NavigatorModel::SelectVertical(int direction) {
@@ -185,28 +183,49 @@ bool NavigatorModel::MoveToStack(int slot) {
 }
 
 bool NavigatorModel::SortToStack(int slot) {
-  if (!CanOrganize() || slot<0 || slot>=kStackCount) return false;
-  const TabId tab=*candidate_; const auto p=Locate(working_,tab);
-  if(p->slot==slot)return false;
-  const auto source=p->slot<0?working_.loose:working_.stacks[p->slot];
+  if (!CanOrganize() || slot < 0 || slot >= kStackCount) return false;
+  const TabId tab = *candidate_;
+  const auto p = Locate(working_, tab);
+  if (p->slot == slot) return false;
+  const auto source = p->slot < 0 ? working_.loose : working_.stacks[p->slot];
   std::optional<TabId> next;
-  if(source.size()>1)next=source[p->row+1<static_cast<int>(source.size())?p->row+1:p->row-1];
+  if (source.size() > 1)
+    next = source[p->row + 1 < static_cast<int>(source.size()) ? p->row + 1 : p->row - 1];
   // If the source disappears, stay at its horizontal position where possible.
-  if(!next){SelectHorizontal(1);if(candidate_!=tab)next=candidate_;Choose(tab);}
-  if(!MoveToStack(slot))return false;
+  if (!next) {
+    SelectHorizontal(1);
+    if (candidate_ != tab) next = candidate_;
+    Choose(tab);
+  }
+  if (!MoveToStack(slot)) return false;
   return Choose(next.value_or(tab));
 }
 
-bool NavigatorModel::ConfirmClose(TabId tab,const Layout& layout,TabId active,std::vector<TabId> recent) {
-  auto expected=committed_;Remove(expected,tab);
-  if(!Valid(layout)||layout.loose!=expected.loose||layout.stacks!=expected.stacks||!Locate(layout,active))return false;
-  auto old=Locate(working_,tab);bool selected=candidate_==tab;
-  Remove(working_,tab);std::erase(recent_snapshot_,tab);
-  committed_=layout;active_=active;recent_=std::move(recent);
-  if(mode_!=Mode::kHidden&&selected){
-    const auto &source=old&&old->slot>=0?working_.stacks[old->slot]:working_.loose;
-    if(!source.empty())Choose(source[std::min(old?old->row:0,static_cast<int>(source.size())-1)]);
-    else {auto all=AllTabs(working_);if(all.empty())Cancel();else Choose(all.front());}
+bool NavigatorModel::ConfirmClose(TabId tab, const Layout& layout, TabId active,
+                                  std::vector<TabId> recent) {
+  auto expected = committed_;
+  Remove(expected, tab);
+  if (!Valid(layout) || layout.loose != expected.loose || layout.stacks != expected.stacks ||
+      !Locate(layout, active))
+    return false;
+  auto old = Locate(working_, tab);
+  bool selected = candidate_ == tab;
+  Remove(working_, tab);
+  std::erase(recent_snapshot_, tab);
+  committed_ = layout;
+  active_ = active;
+  recent_ = std::move(recent);
+  if (mode_ != Mode::kHidden && selected) {
+    const auto& source = old && old->slot >= 0 ? working_.stacks[old->slot] : working_.loose;
+    if (!source.empty())
+      Choose(source[std::min(old ? old->row : 0, static_cast<int>(source.size()) - 1)]);
+    else {
+      auto all = AllTabs(working_);
+      if (all.empty())
+        Cancel();
+      else
+        Choose(all.front());
+    }
   }
   return true;
 }
@@ -244,8 +263,9 @@ bool NavigatorModel::MoveVertical(int direction) {
 }
 
 bool NavigatorModel::StepRecent(int direction) {
-  if (mode_ != Mode::kRecentHold || !candidate_ ||
-      recent_snapshot_.empty() || !Direction(direction)) return false;
+  if (mode_ != Mode::kRecentHold || !candidate_ || recent_snapshot_.empty() ||
+      !Direction(direction))
+    return false;
   auto it = std::find(recent_snapshot_.begin(), recent_snapshot_.end(), *candidate_);
   if (it == recent_snapshot_.end()) return false;
   int next = Wrapped(static_cast<int>(it - recent_snapshot_.begin()), direction,
