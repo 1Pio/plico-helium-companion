@@ -1,16 +1,45 @@
-# Real browser demonstrations
+# Demos
 
-These captures use stock Helium and the shipping Plico extension in an isolated profile with public documentation pages. No personal browsing is included. The clips are silent H.264 MP4s; the shorter GIFs are README previews.
+These animated previews play directly in GitHub's Markdown view. The MP4 links download the full-quality, 60 fps recordings.
 
-| Clip                         | What to watch                                                                                |
-| ---------------------------- | -------------------------------------------------------------------------------------------- |
-| [Navigation](navigation.mp4) | Hold Command, explore, release to switch; Escape cancels; Control-Tab returns.               |
-| [Stacks](stacks.mp4)         | Vertical navigation, remembered selection, sorting without following and direct stack jumps. |
-| [Search](composer.mp4)       | Command-T, a query and selection of an already-open page.                                    |
-| [Larger workspace](busy.mp4) | A twelve-tab stack, overflow scrolling and rapid stack navigation.                           |
+## Switch tabs
 
-The footer is an explanatory overlay, not part of Plico. Keycap states follow logged synthetic native shortcut down/up events, aligned to the capture's monotonic timestamps. Text entry appears in the real input field; it is not represented as individual shortcut keycaps. Capture timing is unchanged apart from trimming unused tails. One clip uses a fixed detail crop. Stills show the actual native panels.
+Hold Command, select another tab, then release to switch. Escape cancels a selection. Control+Tab selects recently used tabs.
 
-Public pages and their favicons belong to their respective projects: [MDN Web Docs](https://developer.mozilla.org/), [web.dev](https://web.dev/), [React](https://react.dev/), [Helium](https://helium.computer/) and [Helium on GitHub](https://github.com/imputnet/helium). They illustrate a documentation workspace and do not imply endorsement. Plico does not redistribute their source or icon files as product assets.
+![Selecting tabs without changing the page, switching on release, and canceling](navigation.gif)
 
-These demonstrations use synthetic input. See [qualification](../QUALIFICATION.md) for runtime evidence and its limits.
+[Download MP4 · 540 KB](navigation.mp4?raw=true)
+
+## Organize tabs
+
+Move within a stack, return to its last visited tab, and sort ungrouped tabs into a stack without following them.
+
+![Vertical stack navigation, remembered tabs and sorting with Command+Shift+number](stacks.gif)
+
+[Download MP4 · 1.1 MB](stacks.mp4?raw=true)
+
+## Search tabs
+
+Press Command+T, type a query and select an already-open tab.
+
+![Searching for CSS and switching to an existing tab](composer.gif)
+
+[Download MP4 · 472 KB](composer.mp4?raw=true)
+
+## Navigate a larger stack
+
+Scroll through a twelve-tab stack, jump between stacks, and cancel a selection with Escape.
+
+![A twelve-tab stack scrolling to keep the selection visible](busy.gif)
+
+[Download MP4 · 746 KB](busy.mp4?raw=true)
+
+## Recording details
+
+Recorded in stock Helium with the shipping Plico extension, an isolated profile and public documentation pages. Input is synthetic; the key overlays follow actual shortcut down/up timestamps. Text entry appears in the real field. The recordings are silent and contain no personal browsing.
+
+The footer is added for the demos. GIFs use 20 fps; MP4s retain 60 fps. Unused tails are trimmed, and the first clip uses a fixed detail crop. No interactions are sped up or fabricated.
+
+Pages and favicons: [MDN Web Docs](https://developer.mozilla.org/), [web.dev](https://web.dev/), [React](https://react.dev/), [Helium](https://helium.computer/) and [Helium on GitHub](https://github.com/imputnet/helium). Their appearance does not imply endorsement.
+
+[Runtime tests and limitations](../QUALIFICATION.md)

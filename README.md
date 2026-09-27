@@ -1,75 +1,79 @@
 # Plico Helium Companion
 
-**Find your next tab before leaving the one you're on.**
+Keyboard tab switching and tab groups for [Helium](https://helium.computer/) on macOS.
 
-Plico adds a native, keyboard-first navigator to [Helium](https://helium.computer/) on macOS. Hold Command, explore your tabs and stacks, then release to switch. Your pages stay put while you decide.
+**Hold Command → select a tab → release to switch.** Keep the current page visible while choosing another tab. Organize related tabs into numbered stacks.
 
-![Plico navigator: loose tabs, a four-tab stack and collapsed stack previews](docs/media/navigator.png)
+![Plico navigator with loose tabs on the left and numbered stacks on the right](docs/media/navigator.png)
 
-![Hold Command, explore candidates, release to switch; Escape cancels](docs/media/navigation.gif)
+## Switch tabs
 
-[Watch the navigation demo](docs/media/navigation.mp4) · [Stacks and quick sorting](docs/media/stacks.mp4) · [Search](docs/media/composer.mp4) · [A larger workspace](docs/media/busy.mp4)
+1. **Hold ⌘.** The navigator appears after 150 ms, or immediately on a navigation keystroke.
+2. **Select a tab.** Use ←/→ or H/L across tabs and stacks; ↑/↓ or K/J within a stack. Selection wraps at either end.
+3. **Release ⌘ to switch.** Esc cancels without switching.
 
-### A little room to think
+The highlight marks your selection. The small dot marks the page currently open.
 
-- **Preview, then commit.** Move with arrows or H/J/K/L. Release Command to switch; Escape cancels the whole navigation or organization draft.
-- **Fold tabs into stacks.** Add Shift to move a tab. Sort into a numbered stack without following it. Existing Helium groups keep their names and colors.
-- **Open a destination, not an empty tab.** Command+T brings up a floating search field for the web, open tabs, history and bookmarks. A new tab appears only when you submit a new destination.
+![Tab selection, switching on Command release, cancellation and recent-tab navigation](docs/media/navigation.gif)
 
-Helium continues to own your pages, cookies and extensions. Plico is a small companion app and extension, not another browser or a Chromium fork.
+| Shortcut        | Action                                                                              |
+| --------------- | ----------------------------------------------------------------------------------- |
+| **⌘B**          | Keep the bar open. Repeat or tap ⌘ to switch; click a tab to switch with the mouse. |
+| **Control+Tab** | Select recently used tabs. Add Shift to reverse; release Control to switch.         |
+| **⌘W** / **⌘M** | Close / mute the selection immediately. Esc does not undo these actions.            |
+
+## Organize tabs into stacks
+
+Stacks are numbered Helium tab groups. New, ungrouped tabs sit on the left; stacks sit on the right.
+
+| Shortcut                  | Action                                                                                      |
+| ------------------------- | ------------------------------------------------------------------------------------------- |
+| **⌘⇧ + arrows / H/J/K/L** | Move the selected tab left/right between tabs and stacks, or up/down within a stack.        |
+| **⌘⇧1–9**                 | Move the tab into that stack; select the next tab in the original list to continue sorting. |
+| **⌘1–9**                  | Select a stack's last visited tab.                                                          |
+
+Release ⌘ to apply the moves and switch to the selection; Esc cancels. Up to ten stacks keep fixed numbers. Empty stacks are hidden. Stack 10 needs a custom shortcut; **⌘0** remains zoom reset.
+
+[Stack navigation and sorting demo](docs/media/README.md#organize-tabs) · [Twelve-tab stack demo](docs/media/README.md#navigate-a-larger-stack)
+
+## Search tabs, history, bookmarks and the web
+
+**⌘T** opens search. Type, choose a result with ↑/↓, then press Enter. Open-tab results switch tabs; URLs and web searches open a new tab. Searches use Helium's default engine. Esc or clicking outside cancels without creating a tab.
+
+![Search field with separate open-tab, history and bookmark results](docs/media/composer.png)
+
+**⌘;** edits the current URL. **⌘⇧C** copies it. [Search demo](docs/media/README.md#search-tabs)
+
+[All controls, settings and tab indicators](docs/USAGE.md) · [All four demos](docs/media/README.md)
 
 ## Install
 
-**0.4.0 is a private review candidate; public release is pending review.** The distribution path is a **local source build**, not a notarized app download. You need stock Helium, macOS and Apple's Command Line Tools. You do not need a paid developer account, Node.js or a Chromium build.
+**0.4.0 is a private review candidate.** Installation builds the companion locally; there is no notarized app download yet.
 
-1. Open Helium once. Install Apple's tools if needed: `xcode-select --install`.
-2. For this review candidate, clone this repository or download its source ZIP, then enter that folder. Versioned release downloads will follow review.
-3. In Terminal, enter the extracted folder and run `bash Install.command`.
-4. Follow the printed steps to load Plico's extension and grant the companion Accessibility permission.
+Requires Helium and Apple's Command Line Tools. Tested on **macOS 26.6, Apple Silicon, Helium 0.17.2.2**.
 
-The script builds on your Mac and installs separate copies. It never patches Helium or replaces your browser profile. Read the [installation guide](docs/INSTALLATION.md) for exact steps, signature limitations, updates, rollback and uninstall.
+1. Open Helium once. Install the tools if needed: `xcode-select --install`.
+2. Clone this repository or extract its source ZIP, then open that folder in Terminal.
+3. Run `bash Install.command`.
+4. Follow the printed steps to load the extension and enable Accessibility for Plico.
 
-**Try it:** focus Helium, hold **⌘** for a moment, press **→**, then release **⌘**. The highlighted candidate becomes the active page. Press **Esc** before release to stay where you were.
+Plico starts with Helium. Your profile and extensions stay in Helium; no browser modification or compilation is required.
 
-## A few keys go a long way
+[Installation, updates, rollback and uninstall](docs/INSTALLATION.md)
 
-| Intent                                    | Default shortcut                                    |
-| ----------------------------------------- | --------------------------------------------------- |
-| Show and explore                          | Hold **⌘**, then **← ↓ ↑ →** or **H J K L**         |
-| Keep the navigator open                   | **⌘B**; repeat or tap **⌘** to commit               |
-| Rearrange the candidate                   | Add **Shift** to movement                           |
-| Visit a stack                             | **⌘1–9**                                            |
-| Sort into a stack, selection stays behind | **⌘⇧1–9**                                           |
-| Recent tabs                               | Hold **Control**, press **Tab**; **Shift** reverses |
-| Search or open                            | **⌘T**                                              |
-| Edit the current URL                      | **⌘;**                                              |
-| Copy the current URL                      | **⌘⇧C**                                             |
-| Close / mute the candidate                | **⌘W** / **⌘M**                                     |
+## Permissions and limitations
 
-Close and mute happen immediately; Escape does not undo them. Stack 10 is available through navigation and can have its own shortcut. Command+0 remains Helium's zoom reset. [All behavior and settings →](docs/USAGE.md)
+- Accessibility lets Plico handle shortcuts while the paired Helium window is focused.
+- Tab/group information, history and bookmarks are read locally. The `debugger` permission only checks attachment status; Plico never attaches or sends debugger commands.
+- macOS Secure Input in password fields can block movement shortcuts. Pinned-tab organization and more than ten groups per window are unsupported.
+- Intel and other OS/browser versions are untested. Local-build updates may require granting Accessibility again.
 
-## A place for everything
+[Permission details](SECURITY.md) · [Tests and known limits](docs/QUALIFICATION.md)
 
-![Navigate within stacks and sort loose tabs without following them](docs/media/stacks.gif)
+## Development
 
-Stacks use Helium's native tab groups. Their numbers stay fixed, empty slots stay out of the way, and each stack remembers its last visited page.
+AppKit interface, C++ navigation model and a Manifest V3 extension connected through native messaging.
 
-![A detached search field with grouped open-tab, recent and bookmark results](docs/media/composer.png)
+[Build and test](docs/DEVELOPMENT.md) · [Architecture](docs/ARCHITECTURE.md) · [Changelog](CHANGELOG.md) · [GPL-3.0 license](LICENSE)
 
-Search results show where an open tab lives. Choose it to switch, or submit your query to the default search engine. Dismissing the field creates nothing.
-
-## Permissions and limits
-
-Plico uses Accessibility to intercept navigation while its paired Helium window is focused. The extension reads tab/group metadata and searches your history/bookmarks locally. Chromium's broad `debugger` permission is used **only to observe whether a debugger is attached**; Plico never attaches, detaches or sends debugger commands. [Permission details →](SECURITY.md)
-
-Password fields can enable macOS Secure Input and block movement shortcuts until you leave the field. Pinned-tab organization and windows with more than ten native groups are unsupported. Qualified on **macOS 26.6** with Apple Silicon and Helium 0.17.2.2. Intel, other browsers and broad OS compatibility are not qualified. [Qualification scope →](docs/QUALIFICATION.md)
-
-## Develop
-
-Native AppKit presentation, a C++ navigation model, and a small Manifest V3 bridge. No browser engine build.
-
-- [Build, test and contribute](docs/DEVELOPMENT.md)
-- [Architecture and safety invariants](docs/ARCHITECTURE.md)
-- [Changes](CHANGELOG.md) · [Security](SECURITY.md) · [GPL-3.0 license](LICENSE)
-
-The navigation model and gesture router originate in [plico](https://github.com/1Pio/plico), under GPL-3.0-only. Helium and Chromium are separate upstream projects. Plico Helium Companion is independent of Helium.
+The navigation model and gesture router come from [plico](https://github.com/1Pio/plico), GPL-3.0-only. Independent of the Helium project.
