@@ -100,6 +100,7 @@ Owned files and retained rollback copies go to Trash. Remove the Plico extension
 - **Accessibility permission required:** enable the installed app in Accessibility, then reconnect. The popup distinguishes an open native connection from a ready keyboard hook.
 - **Keyboard hook unavailable:** reconnect once. If it remains unavailable, check macOS permissions; do not disable system protections.
 - **Connected but no navigator:** focus the actual paired Helium window. Secure Input in password fields can block navigation.
+- **Command hold works only after another input:** check keyboard-remapping rules. Karabiner's [`to.lazy`](https://karabiner-elements.pqrs.org/docs/json/complex-modifications-manipulator-definition/to/lazy/) deliberately withholds modifier key-down until another input. Plico cannot start its reveal timer before receiving that event. Exclude Helium (`^net\.imput\.helium$`) from the conflicting lazy modifier rule, or disable laziness if compatible with your other shortcuts. A Helium-only exception also disables that rule's tap-alone action in Helium; review it before changing your configuration. Plico does not edit remapper settings automatically.
 - **Native host not found:** rerun `status`; do not write a registration into a guessed profile folder.
 - **Signature changed:** use a matching persistent signing identity or explicitly accept the documented ad-hoc update path. Do not turn off OS protections.
 - **Unknown modified files:** preserve them and the recovery stage. The installer will not guess which copy is safe to overwrite.

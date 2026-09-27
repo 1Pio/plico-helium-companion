@@ -14,11 +14,11 @@ The candidate was exercised on **macOS 26.6, Apple Silicon, stock Helium 0.17.2.
 
 The same navigation behavior had earlier physical user confirmation. That confirmation is not a fresh physical acceptance test of this refactored candidate.
 
-## Command-hold presentation fix (0.4.1)
+## Command-hold investigation (0.4.1)
 
-The physical-key report on 0.4.0 showed timely modifier delivery, timer execution and drawing, but the navigator still waited for further input to become visible. A native regression using the real `NSApplication` event loop reproduced the missing window-update cycle without any keyboard or mouse events. It fails on the previous implementation and passes with one application-local wake event after timer reveal. Cancellation and loss of browser pairing also pass.
+The physical-key issue remains unresolved in 0.4.1: the navigator was reported to appear only after another input. The earlier trace measured time from receipt of the modifier event, not from physical key-down, so it did not establish timely physical event delivery. A separate native regression using the real `NSApplication` event loop reproduced a missing window-update cycle without keyboard or mouse events. It fails on the previous implementation and passes with one application-local wake event after timer reveal. Cancellation and loss of browser pairing also pass. This narrower regression does not reproduce or settle the physical-key issue.
 
-The signed 0.4.1 candidate passed the isolated input/loading-page suite, and a screen recording verified visible reveal during a bare synthetic Command hold and dismissal on release. This supplements the event-loop regression; it is not a fresh physical-key acceptance result. No idle polling, global input injection or permanent App Nap exemption was added. Installation and retained rollback passed disposable-home checks.
+The signed 0.4.1 candidate passed the isolated input/loading-page suite, and a screen recording verified visible reveal during a bare synthetic Command hold and dismissal on release. Synthetic holds also worked before this change. They do not establish a physical-key fix. No idle polling, global input injection or permanent App Nap exemption was added. Installation and retained rollback passed disposable-home checks. Keyboard remappers that defer modifier events are a documented compatibility boundary; see installation troubleshooting.
 
 ## Resource sample
 
