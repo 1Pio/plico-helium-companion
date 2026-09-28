@@ -64,6 +64,7 @@ chrome.storage?.onChanged?.addListener((changes, area) => {
 const HOST = 'cc.helwig.plico.companion',
   PREFIX = 'plico:';
 let snapshotTimer = null,
+  snapshotDirty = false,
   lastIconFingerprint = '';
 let port = null,
   epoch = '',
@@ -77,10 +78,19 @@ function send(data) {
   port?.postMessage({ v: VERSION, epoch, ...data });
 }
 function scheduleSnapshot() {
-  if (!port || snapshotTimer) return;
+  if (!port) return;
+  snapshotDirty = true;
+  if (snapshotTimer) return;
   snapshotTimer = setTimeout(() => {
-    snapshotTimer = null;
-    queue(snapshot);
+    // Keep the reservation while queued or in flight. Events during the query
+    // need one trailing refresh, not one more queued snapshot every 25 ms.
+    queue(async () => {
+      snapshotDirty = false;
+      if (port) await snapshot();
+    }).finally(() => {
+      snapshotTimer = null;
+      if (snapshotDirty) scheduleSnapshot();
+    });
   }, 25);
 }
 function queue(fn) {
@@ -433,7 +443,6 @@ for (const event of [
   chrome.tabs.onMoved,
   chrome.tabs.onAttached,
   chrome.tabs.onDetached,
-  chrome.tabs.onUpdated,
   chrome.tabGroups.onCreated,
   chrome.tabGroups.onUpdated,
   chrome.tabGroups.onRemoved,
@@ -441,6 +450,21 @@ for (const event of [
   chrome.windows.onBoundsChanged,
 ])
   event.addListener(scheduleSnapshot);
+// Loading status and auto-discard policy do not affect our snapshot. URL/title,
+// icon, audio, discard, pin and group changes still refresh the full live state.
+const snapshotTabFields = new Set([
+  'title',
+  'url',
+  'favIconUrl',
+  'audible',
+  'mutedInfo',
+  'discarded',
+  'pinned',
+  'groupId',
+]);
+chrome.tabs.onUpdated.addListener((_id, change) => {
+  if (Object.keys(change).some((key) => snapshotTabFields.has(key))) scheduleSnapshot();
+});
 chrome.runtime.onInstalled.addListener(() => queue(connect));
 chrome.runtime.onStartup.addListener(() => queue(connect));
 

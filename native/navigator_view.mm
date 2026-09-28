@@ -127,7 +127,18 @@
     return [parts componentsJoinedByString:@" · "];
   };
   BOOL inStack = NO;
+  // Symbols are identical throughout this draw and reflect its current appearance.
+  // Do not rasterize a new fallback or speaker for every tab.
+  NSImage *globe = nil, *mutedSpeaker = nil, *playingSpeaker = nil;
   auto tab = [&](TabId id, NSRect r, BOOL expanded, BOOL chosen) {
+    NSRect hitRect = inStack ? r : NSIntersectionRect(r, bar);
+    if (NSIsEmptyRect(hitRect)) {
+      // Retain the full accessibility action list and model. Only pixel work
+      // and tooltips outside the viewport are skipped.
+      [self.hits
+          addObject:@{@"rect" : [NSValue valueWithRect:hitRect], @"id" : @(id), @"slot" : @(-1)}];
+      return;
+    }
     NSDictionary* t = c.tabs[@(id)];
     if (chosen) highlight(r);
     if ([c.debuggerTabs containsObject:@(id)]) {
@@ -138,7 +149,11 @@
       p.lineWidth = 1.5;
       [p stroke];
     }
-    NSImage* icon = [c.icons objectForKey:t[@"url"] ?: @""] ?: PlicoSymbol(@"globe", secondary);
+    NSImage* icon = [c.icons objectForKey:t[@"url"] ?: @""];
+    if (!icon) {
+      if (!globe) globe = PlicoSymbol(@"globe", secondary);
+      icon = globe;
+    }
     CGFloat ix = r.origin.x + 14, iy = r.origin.y + (r.size.height - 24) / 2;
     [icon drawInRect:NSMakeRect(ix, iy, 24, 24)
               fromRect:NSZeroRect
@@ -148,8 +163,10 @@
                  hints:nil];
     BOOL muted = [t[@"muted"] boolValue], audible = [t[@"audible"] boolValue];
     if (muted || audible) {
-      NSImage* speaker =
-          PlicoSymbol(muted ? @"speaker.slash.fill" : @"speaker.wave.2.fill", secondary);
+      if (muted && !mutedSpeaker) mutedSpeaker = PlicoSymbol(@"speaker.slash.fill", secondary);
+      if (!muted && !playingSpeaker)
+        playingSpeaker = PlicoSymbol(@"speaker.wave.2.fill", secondary);
+      NSImage* speaker = muted ? mutedSpeaker : playingSpeaker;
       [speaker drawInRect:NSMakeRect(ix + 6, r.origin.y + 1, 12, 10)
                  fromRect:NSZeroRect
                 operation:NSCompositingOperationSourceOver

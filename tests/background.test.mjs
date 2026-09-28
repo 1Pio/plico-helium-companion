@@ -232,7 +232,7 @@ test('stale revision cannot mutate tabs', async () => {
 test('event snapshots never inherit prior queue return values', async () => {
   const h = await harness();
   for (let i = 0; i < 4; i++) {
-    h.api.tabs.onUpdated.emit(1, {}, h.tabs[0]);
+    h.api.tabs.onUpdated.emit(1, { title: h.tabs[0].title }, h.tabs[0]);
     await new Promise((r) => setTimeout(r, 35));
     await settle();
   }
@@ -398,7 +398,7 @@ test('attachment observation preserves pending partial session restoration', asy
     { id: 12, index: 1, groupId: 5, active: false, windowId: 7, title: 'Two', url: saved[1].url },
     { id: 13, index: 2, groupId: -1, active: true, windowId: 7, title: 'Three', url: saved[2].url },
   );
-  h.api.tabs.onUpdated.emit(13, {}, h.tabs[2]);
+  h.api.tabs.onUpdated.emit(13, { url: h.tabs[2].url }, h.tabs[2]);
   await new Promise((r) => setTimeout(r, 40));
   await settle();
   const final = h.messages.filter((m) => m.type === 'snapshot').at(-1);
@@ -640,4 +640,87 @@ test('queued native readiness cannot revive a disconnected host', async () => {
   );
   assert.equal(status.status, 'Disconnected');
   assert.equal(status.connected, false);
+});
+
+test('tab updates snapshot only fields consumed by navigation and icons', async () => {
+  const h = await harness();
+  const count = () => h.messages.filter((m) => m.type === 'snapshot').length;
+  const before = count();
+  for (const info of [{ autoDiscardable: false }, { status: 'loading' }, { status: 'complete' }])
+    h.api.tabs.onUpdated.emit(1, info, h.tabs[0]);
+  await new Promise((r) => setTimeout(r, 50));
+  await settle();
+  assert.equal(count(), before, 'unconsumed metadata should not cause a full snapshot');
+  for (const key of [
+    'title',
+    'url',
+    'favIconUrl',
+    'audible',
+    'mutedInfo',
+    'discarded',
+    'pinned',
+    'groupId',
+  ]) {
+    const prior = count();
+    h.api.tabs.onUpdated.emit(1, { [key]: h.tabs[0][key] }, h.tabs[0]);
+    await new Promise((r) => setTimeout(r, 40));
+    await settle();
+    assert.equal(count(), prior + 1, key + ' must remain observable');
+  }
+});
+
+test('event snapshot requests stay coalesced while the browser query is pending', async () => {
+  const h = await harness();
+  const original = h.api.windows.getAll;
+  let release;
+  const blocked = new Promise((r) => {
+    release = r;
+  });
+  let started = false;
+  h.api.windows.getAll = async (...args) => {
+    started = true;
+    await blocked;
+    return original(...args);
+  };
+  const before = h.messages.filter((m) => m.type === 'snapshot').length;
+  try {
+    h.api.tabs.onUpdated.emit(1, { title: 'First' }, h.tabs[0]);
+    await new Promise((r) => setTimeout(r, 40));
+    assert(started);
+    for (let i = 0; i < 8; i++) {
+      h.tabs[0].title = 'Latest ' + i;
+      h.api.tabs.onUpdated.emit(1, { title: h.tabs[0].title }, h.tabs[0]);
+      await new Promise((r) => setTimeout(r, 35));
+    }
+  } finally {
+    release();
+  }
+  await new Promise((r) => setTimeout(r, 80));
+  await settle();
+  const snapshots = h.messages.filter((m) => m.type === 'snapshot').slice(before);
+  assert(snapshots.length <= 2, 'at most an in-flight snapshot and one trailing refresh');
+  assert.equal(snapshots.at(-1).tabs[0].title, 'Latest 7');
+});
+
+test('a failed event query releases the coalescing reservation for later updates', async () => {
+  const h = await harness();
+  const original = h.api.windows.getAll;
+  let fail = true;
+  h.api.windows.getAll = async (...args) => {
+    if (fail) {
+      fail = false;
+      throw Error('fixture query failure');
+    }
+    return original(...args);
+  };
+  const before = h.messages.filter((m) => m.type === 'snapshot').length;
+  h.api.tabs.onUpdated.emit(1, { title: 'Failed read' }, h.tabs[0]);
+  await new Promise((r) => setTimeout(r, 50));
+  await settle();
+  assert.equal(h.messages.filter((m) => m.type === 'snapshot').length, before);
+  h.tabs[0].title = 'Recovered';
+  h.api.tabs.onUpdated.emit(1, { title: 'Recovered' }, h.tabs[0]);
+  await new Promise((r) => setTimeout(r, 50));
+  await settle();
+  assert.equal(h.messages.filter((m) => m.type === 'snapshot').at(-1).tabs[0].title, 'Recovered');
 });

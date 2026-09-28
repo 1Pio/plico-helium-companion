@@ -26,6 +26,8 @@ node --test tests/*.test.mjs
 python3 tests/publish_build_test.py
 "$CXX" "${CXXFLAGS[@]}" -std=c++20 -O1 -fobjc-arc -I. -framework Cocoa -framework ApplicationServices -framework Carbon -framework QuartzCore tests/native_state_test.mm "${NATIVE[@]}" plico/core/navigator_model.cc plico/core/gesture_router.cc -o build/bin/native_state_test
 build/bin/native_state_test
+"$CXX" "${CXXFLAGS[@]}" -std=c++20 -O1 -fobjc-arc -I. -framework Cocoa -framework ApplicationServices -framework Carbon -framework QuartzCore tests/navigator_view_test.mm "${NATIVE[@]}" plico/core/navigator_model.cc plico/core/gesture_router.cc -o build/bin/navigator_view_test
+build/bin/navigator_view_test
 fi
 "$CXX" "${CXXFLAGS[@]}" -std=c++20 -O1 -fobjc-arc -I. -framework Cocoa -framework ApplicationServices -framework Carbon -framework QuartzCore native/main.mm "${NATIVE[@]}" plico/core/navigator_model.cc plico/core/gesture_router.cc -o "$app/Contents/MacOS/plico-companion"
 cp native/Info.plist "$app/Contents/Info.plist"

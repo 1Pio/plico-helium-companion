@@ -34,9 +34,19 @@ try {
   await sleep(450);
   const ids = (await api(`chrome.tabs.query({windowId:${wid}})`)).map((t) => t.id);
   const active = async () => (await api(`chrome.tabs.query({windowId:${wid},active:true})`))[0].id;
+  // Each phase changes browser state through CDP. Re-establish the exact fixture
+  // window before starting another gesture; input still aborts on any focus loss.
+  const focusFixture = async () => {
+    native('activate');
+    await api(`chrome.windows.update(${wid},{focused:true})`);
+    await sleep(200);
+    assert.equal(
+      (await api('chrome.windows.getAll({windowTypes:["normal"]})')).find((w) => w.focused)?.id,
+      wid,
+    );
+  };
   await api(`chrome.tabs.update(${ids[0]},{active:true})`);
-  await sleep(150);
-  native('activate');
+  await focusFixture();
   key('cmd+,11');
   await sleep(150);
   native('pointer', 'loose-peer');
@@ -58,7 +68,7 @@ try {
   );
   await api(`chrome.tabGroups.update(${group},{title:'plico:1'})`);
   await api(`chrome.tabs.update(${ids[0]},{active:true})`);
-  await sleep(150);
+  await focusFixture();
   key('cmd+,11');
   await sleep(150);
   native('pointer', 'stack-down');
@@ -69,7 +79,7 @@ try {
   assert.equal(await active(), ids[1]);
   passed.push('vertical scroll selects stack candidate and bare Command commits it');
   await api(`chrome.tabs.update(${ids[0]},{active:true})`);
-  await sleep(150);
+  await focusFixture();
   const child = spawn('python3', ['scripts/native-input.py', 'gesture', 'cmd+,wait', '1400']);
   const done = new Promise((resolve) => {
     child.on('error', resolve);
@@ -92,7 +102,7 @@ try {
       `chrome.tabs.create({windowId:${wid},url:'about:blank#plico-pointer-${i}',active:false})`,
     );
   await api(`chrome.tabs.update(${ids[0]},{active:true})`);
-  await sleep(200);
+  await focusFixture();
   key('cmd+,11');
   await sleep(200);
   const capture = (name) => {

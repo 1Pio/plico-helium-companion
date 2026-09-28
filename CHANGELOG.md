@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.5
+
+- Skip offscreen navigator drawing while retaining every tab in keyboard navigation and accessibility actions. Reuse fallback and audio symbols within each draw.
+- Ignore tab-update fields Plico does not display. Keep event refreshes coalesced while browser queries are pending, with one trailing refresh for newer state.
+
 ## 0.4.4 (release candidate)
 
 - Add the approved, faint ambient shade beneath the navigator, contained within the browser window. It appears with the bar without animation and does not intercept input.

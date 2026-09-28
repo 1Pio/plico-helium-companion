@@ -1,6 +1,6 @@
 # Qualification
 
-Plico 0.4.4 is distributed as source for a local build. The README and demonstration media were reviewed before publication.
+Plico is distributed as source for a local build. The README and demonstration media were reviewed before publication.
 
 The candidate was exercised on **macOS 26.6, Apple Silicon, stock Helium 0.17.2.2**. This is a qualification statement for that combination, not a promise of broad Mac compatibility.
 
@@ -39,6 +39,18 @@ The final signed 0.4.4 candidate passed the source/native suite, 49 JavaScript t
 Four new recordings use the unchanged shipping companion in an isolated public-page profile: arrow-only selection, Shift-arrow reordering, six background reference links followed by numbered sorting, and open-tab search. Browser assertions checked the recorded selection and group commits. Navigation keys use scoped native synthetic input; background links use browser-injected Command-clicks. No gesture is sped up, and no product interface is reconstructed.
 
 All four final MP4s played to completion in Helium. Review covered screenshots, sampled motion, consecutive frames around Command reveal/release, caption/keycap timing, complete composer framing and export metadata. An encoded-frame check matched 8,671 keycap states against event logs away from transition boundaries. GIF timing stays within one preview frame of its MP4. The README preview was checked at desktop and phone widths with every image loaded and one shortcut table; this local preview does not establish identical rendering on every GitHub client.
+
+## Performance review (0.4.5)
+
+The signed candidate passes the source/native suite, 52 JavaScript tests, ten disposable-home installation tests and four update/rollback tests. New regressions cover filtered metadata events, coalescing while a browser query is pending, recovery after query failure, viewport-bounded icon drawing and retention of all accessibility actions.
+
+The extension changes were measured in real isolated Helium with 60 blank tabs. Native rendering was measured separately in an offscreen AppKit fixture. Results and evidence boundaries are in [Performance](PERFORMANCE.md).
+
+The rebuilt app passed real isolated Helium checks for bridge validation, offscreen selection, stack wrapping/reordering, external-close cancellation, native pointer selection and scrolling, input-field and blank-loading-page navigation, composer submission and late favicon arrival, and observation-only attachment indicators. An idle open navigator did not poll attachment metadata. Dark/light captures retained the existing layout and overflow fades; panel bounds stayed inside the browser and previewing left the active page unchanged.
+
+A normal browser quit/reopen preserved MRU, the last-used stack member, fixed slots with empty preceding slots, native group names and configured shortcuts. New loose tabs still preceded stacks. These are native synthetic-input and runtime checks, not a new physical keyboard or VoiceOver acceptance test.
+
+The initial pointer attempts stopped at the existing foreground/panel guards. The fixture now re-establishes its exact window before each phase; an uninterrupted run passed without weakening the input guard. One restart check began before the debugging endpoint was ready; the check passed after startup completed. No product failure was reproduced in either interruption. Tests resumed only after memory pressure returned to Normal, and the isolated browser was closed afterward.
 
 ## Resource sample
 

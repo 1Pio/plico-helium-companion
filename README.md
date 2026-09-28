@@ -65,7 +65,7 @@ These are the default bindings. Change shortcuts and the reveal delay in the ext
 
 ## Install
 
-**Current version: 0.4.4.** Installation builds the companion locally; there is no notarized app download yet.
+**Current version: 0.4.5.** Installation builds the companion locally; there is no notarized app download yet.
 
 Requires Helium and Apple's Command Line Tools. Tested on **macOS 26.6, Apple Silicon, Helium 0.17.2.2**.
 
@@ -91,6 +91,6 @@ Plico starts with Helium. Your profile and extensions stay in Helium; no browser
 
 AppKit interface, C++ navigation model and a Manifest V3 extension connected through native messaging.
 
-[Build and test](docs/DEVELOPMENT.md) · [Architecture](docs/ARCHITECTURE.md) · [Changelog](CHANGELOG.md) · [GPL-3.0 license](LICENSE)
+[Build and test](docs/DEVELOPMENT.md) · [Architecture](docs/ARCHITECTURE.md) · [Performance measurements](docs/PERFORMANCE.md) · [Changelog](CHANGELOG.md) · [GPL-3.0 license](LICENSE)
 
-The navigation model and gesture router come from [plico](https://github.com/1Pio/plico), GPL-3.0-only. Independent of the Helium project.
+The navigation model and gesture router originated in the Plico browser project, under GPL-3.0-only. Their source and notices are included here. Independent of the Helium project.

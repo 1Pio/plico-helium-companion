@@ -42,7 +42,7 @@ The app verifies that Helium is foreground and the accessibility window matches 
 
 ## Work while idle
 
-Browser events coalesce snapshots. Reveal uses a single scheduled deadline rather than a polling loop. Attachment metadata is sampled on reveal, not polled continuously. Favicons are bounded and cached; native icons are capped. Performance qualification should measure the complete native/bridge behavior rather than infer zero overhead from these choices.
+Relevant browser events coalesce snapshots, including while a queued query is in flight. Events arriving during the query request one trailing refresh. Reveal uses a single scheduled deadline rather than a polling loop. Attachment metadata is sampled on reveal, not polled continuously. Favicons are bounded and cached; native icons are capped. Navigator drawing skips offscreen pixels while retaining all navigation and accessibility targets. Shared placeholder/audio symbols are reused only within a draw. Performance qualification should measure the complete native/bridge behavior rather than infer zero overhead from these choices. See [measured changes and review scope](PERFORMANCE.md).
 
 ## Contributor tools are separate
 
