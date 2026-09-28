@@ -23,7 +23,7 @@ PLICO_DEMO=1 node scripts/media/prepare.mjs --scene=navigation --take=review-1
 PLICO_DEMO=1 node scripts/media/record.mjs navigation --take=review-1
 ```
 
-Scenes are `navigation`, `stacks`, `busy` and `composer`. Each uses real public pages in the marked demo profile. Preparation closes older demo windows, loads pages sequentially, and discards inactive renderers while retaining their real titles and favicons. The busy scene Command-clicks six visible links on the public React Hooks reference page through the scoped browser input API, then sorts the resulting tabs with native keyboard gestures. Both commands refuse elevated memory pressure. Record checks the committed tab/group outcomes as well as the native connection.
+Scenes are `navigation`, `stacks`, `busy` and `composer`. Each uses real public pages in the marked demo profile. Preparation closes older demo windows, loads pages sequentially, and discards inactive renderers while retaining their real titles and favicons. The busy scene starts with three loose tabs and no stacks. It Command-clicks seven visible links on the public React Hooks reference page through the scoped browser input API, fills stacks 1, 2 and 3 with native keyboard gestures, then sends the last tab to stack 1. A final held preview visits each stack and cancels without switching the page. Both commands refuse elevated memory pressure. Record checks the committed tab/group outcomes as well as the native connection.
 
 Use a new `--take` name for each attempt: existing recordings are never overwritten. `prepare --window=ID` can restore an existing demo fixture after a rehearsal. Output goes under `.local/media-refresh-044/TAKE/`.
 

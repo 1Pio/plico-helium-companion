@@ -20,11 +20,11 @@ Add Shift to the same arrows. Reorder a loose tab, put it into a stack, change i
 
 ## Collect and sort
 
-Command-click six reference links to open them in the background, then sort them with Command+Shift+number. The selection stays in the source list, so the next tab is ready to sort. State hooks go to stack 1, effect hooks to stack 2, and refs to stack 3.
+Start with three loose tabs and no stacks. Command-click seven reference links, then use Command+Shift+number to fill stacks 1, 2 and 3, sending the last tab back to stack 1. The selection stays in the source list after each move. Finally, preview each stack without switching the visible page.
 
-![Collecting six tabs and quickly sorting them into three stacks](busy.gif)
+![Starting with no stacks, collecting seven tabs and sorting them into three new stacks](busy.gif)
 
-[Watch or download MP4 · 8.1s · 0.49 MB](busy.mp4?raw=true)
+[Watch or download MP4 · 16.6s · 0.76 MB](busy.mp4?raw=true)
 
 ## Search tabs
 
@@ -36,7 +36,7 @@ Command+T searches open tabs as well as history, bookmarks and the web. Select a
 
 ## Recording details
 
-Recorded with Plico 0.4.4 in stock Helium, using the shipping extension and a separate demo profile. Pages and favicons are real. The keycaps follow timestamps from the predefined native key-down/key-up events and browser-injected Command-clicks, including held modifiers. Captions explain the current step; neither the product interface nor its transitions are reconstructed. No interaction is sped up.
+Collect and sort was recorded with Plico 0.4.5; the other demos use 0.4.4. All were captured in stock Helium, using the shipping extension and a separate demo profile. Pages and favicons are real. The keycaps follow timestamps from the predefined native key-down/key-up events and browser-injected Command-clicks, including held modifiers. Captions explain the current step; neither the product interface nor its transitions are reconstructed. No interaction is sped up.
 
 The recordings are silent. They include only the isolated browser and its companion, with no personal browsing or unrelated apps. Fixed crops bring navigation closer; the caption/keycap footer is added for the demos. GIFs are compact previews; MP4s retain 60 fps. These are synthetic-input recordings, not physical-keyboard acceptance tests.
 

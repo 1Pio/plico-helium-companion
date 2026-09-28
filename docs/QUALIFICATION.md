@@ -67,3 +67,9 @@ In a controlled documentation-tab demo, the companion process consumed about 0.0
 - The source build is not notarized. Changed ad-hoc builds may require removing/re-adding their Accessibility entry. No private signing identity is distributed.
 
 Repository publication does not establish fresh-machine installation or broader compatibility. Those limits remain as listed above.
+
+## Collect-and-sort demo refresh (0.4.5)
+
+The replacement starts with three loose tabs and no populated stacks, opens seven real reference links, and sorts them into stacks 1/1/2/2/3/3/1. Browser assertions verify all seven memberships and that the visible page remains unchanged through the final stack previews and cancellation. The shipping product was unchanged.
+
+The 16.6-second MP4 played to completion in isolated Helium without decoding errors (two dropped playback frames in this sample). Visual review covered the full clip at 500 ms intervals, consecutive frames around the first stack creation, and a full-size stack preview. Encoded-frame checks matched 6,777 keycap states against the recorded events outside 40 ms transition windows. The GIF differs in duration by less than one 50 ms preview frame. This is synthetic-input media qualification, not a new physical-keyboard or compatibility claim.

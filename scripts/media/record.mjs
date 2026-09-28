@@ -123,7 +123,7 @@ try {
       String(hosts[0]),
       String(fixture.windowID),
       movie,
-      scene === 'stacks' ? '17' : scene === 'composer' ? '8' : scene === 'busy' ? '14' : '14',
+      scene === 'stacks' ? '17' : scene === 'composer' ? '8' : scene === 'busy' ? '24' : '14',
     ],
     { stdio: ['ignore', 'pipe', 'pipe'] },
   );
@@ -205,7 +205,14 @@ try {
     await input('gesture', 'cmd+,shift+,124,wait,125,wait,123,wait,shift-,cmd-', '350');
     await assertGroup(fixture.ids[1], 'Layout');
   } else if (scene === 'busy') {
-    chapter('Command-click six reference links');
+    const initial = await api(`chrome.tabs.query({windowId:${fixture.window}})`);
+    if (initial.length !== 3 || initial.some((t) => t.groupId >= 0))
+      throw Error('Collect demo must start with three loose tabs and no stacks');
+    chapter('Start with loose tabs');
+    await input('gesture', 'cmd+,wait,cmd-', '800');
+    await assertActive(fixture.ids[0]);
+    await sleep(250);
+    chapter('Collect seven reference tabs');
     const page = (await b.call('Target.getTargets')).targetInfos.find(
       (t) => t.type === 'page' && t.url === fixture.urls[0],
     );
@@ -258,12 +265,31 @@ try {
       await sleep(170);
       await assertActive(fixture.ids[0]);
     }
+    await waitFor(async () => {
+      const tabs = await api(`chrome.tabs.query({windowId:${fixture.window}})`);
+      return (
+        tabs.length === fixture.ids.length + fixture.additions.length &&
+        tabs.every((t) => (t.status === 'complete' || t.discarded) && t.favIconUrl)
+      );
+    }, 'Collected pages and favicons are not ready');
+    await sleep(400);
+    // With no groups, Chromium places related background tabs after their opener.
+    // Verify that order rather than silently recording a different sorting result.
+    const collected = await api(`chrome.tabs.query({windowId:${fixture.window}})`);
+    const expected = [fixture.urls[0], ...fixture.additions, ...fixture.urls.slice(1)];
+    if (
+      collected.length !== expected.length ||
+      collected.some(
+        (t, i) => t.url.replace(/\/$/, '') !== expected[i].replace(/\/$/, '') || t.groupId >= 0,
+      )
+    )
+      throw Error('Collected tabs are not in the expected loose order');
     // The index remains visible while links open in the background.
-    chapter('Command + Shift · 1, 1, 2, 2, 3, 3');
+    chapter('Fill stacks · 1, 1, 2, 2, 3, 3, 1');
     await input(
       'gesture',
-      'cmd+,124,124,124,wait,shift+,18,wait,18,wait,19,wait,19,wait,20,wait,20,wait,shift-,wait,cmd-',
-      '260',
+      'cmd+,wait,124,wait,shift+,18,wait,18,wait,19,wait,19,wait,20,wait,20,wait,18,wait,shift-,123,wait,cmd-',
+      '340',
     );
     await sleep(500);
     const sorted = await api(`chrome.tabs.query({windowId:${fixture.window}})`);
@@ -271,12 +297,20 @@ try {
       const tab = sorted.find((t) => t.url.replace(/\/$/, '') === url.replace(/\/$/, ''));
       if (!tab || tab.groupId < 0) throw Error('Rapid sorting did not group every addition');
       const group = await api(`chrome.tabGroups.get(${tab.groupId})`);
-      if (index < 2 && group.title !== 'State') throw Error('State sorting mismatch');
-      if (index >= 2 && index < 4 && group.title !== 'Effects')
+      if ((index < 2 || index === 6) && group.title !== 'plico:1')
+        throw Error('State sorting mismatch');
+      if (index >= 2 && index < 4 && group.title !== 'plico:2')
         throw Error('Effect sorting mismatch');
-      if (index >= 4 && group.title !== 'plico:3') throw Error('Ref sorting mismatch');
+      if (index >= 4 && index < 6 && group.title !== 'plico:3') throw Error('Ref sorting mismatch');
     }
-    await assertActive(fixture.ids[2]);
+    await assertActive(fixture.ids[0]);
+    chapter('Preview stacks · keep the page');
+    await input('gesture', 'cmd+,18,wait,19,wait,20,wait,53,cmd-', '950');
+    await assertActive(fixture.ids[0]);
+    const final = await api(`chrome.tabs.query({windowId:${fixture.window}})`);
+    for (const tab of sorted)
+      if (final.find((t) => t.id === tab.id)?.groupId !== tab.groupId)
+        throw Error('Preview changed the committed arrangement');
   } else {
     chapter('Command + T · search your open tabs');
     await input('gesture', 'cmd+,17,cmd-', '0');

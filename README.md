@@ -28,7 +28,7 @@ Release ⌘ to apply the moves and switch to the selection; Esc cancels. Up to t
 
 ### Collect and sort
 
-![Collecting six tabs and quickly sorting them into three stacks](docs/media/busy.gif)
+![Starting with no stacks, collecting seven tabs and sorting them into three new stacks](docs/media/busy.gif)
 
 [Watch MP4](docs/media/busy.mp4?raw=true)
 

@@ -45,9 +45,6 @@ try {
           'https://react.dev/reference/react/hooks',
           'https://bearblog.dev/',
           'https://www.wikipedia.org/',
-          'https://react.dev/reference/react/useContext',
-          'https://react.dev/reference/react/useSyncExternalStore',
-          'https://react.dev/reference/react/useInsertionEffect',
         ]
       : [
           'https://bearblog.dev/',
@@ -67,6 +64,7 @@ try {
     'useLayoutEffect',
     'useRef',
     'useImperativeHandle',
+    'useContext',
   ].map((name) => 'https://react.dev/reference/react/' + name);
   const resume = process.argv.find((a) => a.startsWith('--window='));
   if (resume && !/^--window=\d+$/.test(resume)) throw Error('Invalid demo window');
@@ -83,7 +81,7 @@ try {
       : scene === 'composer'
         ? [0, 3, 4]
         : scene === 'busy'
-          ? [0, 2]
+          ? [0]
           : [0, 1],
   );
   const win = await api(
@@ -136,10 +134,7 @@ try {
   {
     const groups =
       scene === 'busy'
-        ? [
-            [[3, 4], 'State', 'blue'],
-            [[5], 'Effects', 'purple'],
-          ]
+        ? []
         : [
             [[3, 4, 5, 6], 'Layout', 'blue'],
             [[7, 8], 'Components', 'purple'],
